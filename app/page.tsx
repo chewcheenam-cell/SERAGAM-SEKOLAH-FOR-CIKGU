@@ -134,10 +134,26 @@ export default function Home() {
       deliveryTotal
     };
     const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
-    const url = `${window.location.origin}/share#data=${encoded}`;
+    await repo.saveProject({
+      id: meta.id,
+      schoolName: meta.schoolName || "School Name",
+      quotationNo: meta.quotationNo,
+      projectNo: meta.projectNo,
+      schoolLogo: meta.schoolLogo,
+      companyLogo: meta.companyLogo,
+      sourceFileName,
+      pricing,
+      rows: validRows,
+      summary,
+      createdAt: meta.createdAt
+    });
+    setProjects(await repo.listProjects());
+
+    const token = encodeURIComponent(meta.projectNo);
+    const url = `${window.location.origin}/share?token=${token}#data=${encoded}`;
     await navigator.clipboard?.writeText(url);
     window.open(url, "_blank", "noopener,noreferrer");
-    setNotice("Share view opened and link copied. Customer can tick Paid/Not Yet only.");
+    setNotice("Share view opened and link copied. Send that link to customer.");
   }
 
   function duplicateProject(project: ProjectRecord) {

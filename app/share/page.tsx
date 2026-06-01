@@ -41,23 +41,76 @@ export default function SharePage() {
   const shareToken = payload?.shareToken ?? payload?.projectNo ?? payload?.quotationNo ?? "";
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const data = params.get("data");
-    if (!data) return;
+    void loadInitialShare();
+  }, []);
 
-    try {
-      const parsed = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(data))))) as SharePayload;
-      const saved = localStorage.getItem(`batikara.share.${parsed.quotationNo}`);
-      const savedRows = saved ? JSON.parse(saved) as Record<string, Partial<ShareRow>> : {};
-      const mergedRows = parsed.rows.map((row) => calculateShareRow({ ...row, ...savedRows[row.id] }, parsed.pricing ?? DEFAULT_PRICING));
-      setPayload(parsed);
-      setRows(mergedRows);
-      void loadSharedRows(parsed, mergedRows);
-    } catch {
+  async function loadInitialShare() {
+    const search = new URLSearchParams(window.location.search);
+    const token = search.get("token");
+    const remotePayload = token ? await loadPayloadFromToken(token) : null;
+    const hashPayload = parseHashPayload();
+    const parsed = remotePayload ?? hashPayload;
+
+    if (!parsed) {
       setPayload(null);
       setRows([]);
+      return;
     }
-  }, []);
+
+    const saved = localStorage.getItem(`batikara.share.${parsed.quotationNo}`);
+    const savedRows = saved ? JSON.parse(saved) as Record<string, Partial<ShareRow>> : {};
+    const mergedRows = parsed.rows.map((row) => calculateShareRow({ ...row, ...savedRows[row.id] }, parsed.pricing ?? DEFAULT_PRICING));
+    setPayload(parsed);
+    setRows(mergedRows);
+    void loadSharedRows(parsed, mergedRows);
+  }
+
+  async function loadPayloadFromToken(token: string): Promise<SharePayload | null> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+      .from("projects")
+      .select("school_name, quotation_no, project_no, pricing, rows, summary")
+      .or(`project_no.eq.${token},quotation_no.eq.${token}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    const projectRows = Array.isArray(data.rows) ? data.rows as Array<Record<string, unknown>> : [];
+    const summary = data.summary as Record<string, unknown> | null;
+    return {
+      schoolName: String(data.school_name ?? "School Name"),
+      quotationNo: String(data.quotation_no ?? token),
+      projectNo: String(data.project_no ?? token),
+      shareToken: String(data.project_no ?? token),
+      pricing: data.pricing as PricingSettings,
+      deliveryTotal: Number(summary?.deliveryTotal ?? 0),
+      rows: projectRows.map((row, index) => ({
+        id: String(row.id ?? `${index}`),
+        nama: String(row.nama ?? ""),
+        jenisPakaian: String(row.jenisPakaian ?? ""),
+        saiz: String(row.saiz ?? ""),
+        poket: Boolean(row.poket),
+        quantity: Number(row.quantity ?? 1),
+        unitPrice: Number(row.unitPrice ?? 0),
+        totalPrice: Number(row.totalPrice ?? 0),
+        paid: Boolean(row.paid)
+      }))
+    };
+  }
+
+  function parseHashPayload(): SharePayload | null {
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const data = params.get("data");
+    if (!data) return null;
+
+    try {
+      return JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(data))))) as SharePayload;
+    } catch {
+      return null;
+    }
+  }
 
   useEffect(() => {
     if (!payload) return;
