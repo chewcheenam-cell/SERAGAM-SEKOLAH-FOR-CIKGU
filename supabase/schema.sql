@@ -24,6 +24,8 @@ create table if not exists public.projects (
   id uuid primary key default gen_random_uuid(),
   quotation_no text not null unique,
   project_no text not null unique,
+  invoice_no text,
+  design_code text,
   school_name text not null,
   school_logo text,
   company_logo text,
@@ -35,6 +37,9 @@ create table if not exists public.projects (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.projects add column if not exists invoice_no text;
+alter table public.projects add column if not exists design_code text;
 
 create table if not exists public.share_payment_rows (
   id uuid primary key default gen_random_uuid(),

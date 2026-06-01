@@ -10,6 +10,8 @@ export type SharePayloadRecord = {
   schoolName: string;
   quotationNo: string;
   projectNo: string;
+  invoiceNo?: string;
+  designCode?: string;
   shareToken?: string;
   deliveryTotal?: number;
   pricing?: PricingSettings;
@@ -207,6 +209,8 @@ function fromProjectRow(row: Record<string, unknown>): ProjectRecord {
     schoolName: String(row.school_name),
     quotationNo: String(row.quotation_no),
     projectNo: String(row.project_no),
+    invoiceNo: String(row.invoice_no ?? ""),
+    designCode: String(row.design_code ?? ""),
     schoolLogo: String(row.school_logo ?? ""),
     companyLogo: String(row.company_logo ?? ""),
     sourceFileName: String(row.source_file_name ?? ""),
@@ -223,6 +227,8 @@ function toProjectRow(project: ProjectRecord) {
     school_name: project.schoolName,
     quotation_no: project.quotationNo,
     project_no: project.projectNo,
+    invoice_no: project.invoiceNo ?? "",
+    design_code: project.designCode ?? "",
     school_logo: project.schoolLogo,
     company_logo: project.companyLogo,
     source_file_name: project.sourceFileName,
@@ -262,6 +268,8 @@ function normalizeProjectRecord(project: ProjectRecord): ProjectRecord {
   return {
     ...project,
     schoolName: project.schoolName || "Unnamed School",
+    invoiceNo: project.invoiceNo ?? "",
+    designCode: project.designCode ?? "",
     rows,
     summary: normalizedSummary,
     createdAt: project.createdAt || new Date().toISOString()

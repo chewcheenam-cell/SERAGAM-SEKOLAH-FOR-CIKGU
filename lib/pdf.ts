@@ -1,7 +1,7 @@
 import { formatCurrency, type ProjectRecord } from "@/lib/calculator";
 
 export async function exportQuotationPdf(project: {
-  meta: { schoolName: string; quotationNo: string; projectNo: string };
+  meta: { schoolName: string; quotationNo: string; projectNo: string; invoiceNo?: string; designCode?: string };
   pricing: ProjectRecord["pricing"];
   rows: ProjectRecord["rows"];
   summary: ProjectRecord["summary"];
@@ -17,9 +17,11 @@ export async function exportQuotationPdf(project: {
   doc.text(`School: ${project.meta.schoolName || "School Name"}`, 14, 28);
   doc.text(`Quotation No: ${project.meta.quotationNo}`, 14, 35);
   doc.text(`Project No: ${project.meta.projectNo}`, 14, 42);
+  doc.text(`Invoice No: ${project.meta.invoiceNo || "-"}`, 14, 49);
+  doc.text(`Design Code: ${project.meta.designCode || "-"}`, 14, 56);
 
   autoTable.call(doc, {
-    startY: 52,
+    startY: 66,
     head: [["Nama", "Jawatan", "Item", "Saiz", "Poket", "Qty", "Amount", "Status", "Total"]],
     body: project.rows.map((row) => [
       row.nama,
@@ -46,6 +48,9 @@ export async function exportQuotationPdf(project: {
   doc.text(`Paid: ${project.summary.paidCount ?? 0} (${formatCurrency(project.summary.paidTotal ?? 0)})`, 14, finalY + 35);
   doc.text(`Not Yet: ${project.summary.pendingCount ?? project.summary.totalPax} (${formatCurrency(project.summary.pendingTotal ?? project.summary.grandTotal)})`, 14, finalY + 42);
   doc.text(`Average Per Cikgu: ${formatCurrency(project.summary.averageCostPerPax)}`, 14, finalY + 49);
+  const pendingRows = project.rows.filter((row) => row.nama.trim() && !row.paid);
+  const pendingNames = pendingRows.length ? pendingRows.map((row) => row.nama).join(", ") : "Semua guru sudah bayar";
+  doc.text(`Guru Belum Bayar: ${pendingNames}`, 14, finalY + 56, { maxWidth: 180 });
   doc.save(`${project.meta.quotationNo}.pdf`);
 }
 

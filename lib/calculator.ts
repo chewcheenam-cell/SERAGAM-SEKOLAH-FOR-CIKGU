@@ -53,6 +53,8 @@ export type ProjectRecord = {
   schoolName: string;
   quotationNo: string;
   projectNo: string;
+  invoiceNo?: string;
+  designCode?: string;
   schoolLogo?: string;
   companyLogo?: string;
   sourceFileName?: string;
@@ -89,6 +91,8 @@ export function createEmptyProjectMeta() {
   return {
     ...refs,
     schoolName: "",
+    invoiceNo: "",
+    designCode: "",
     schoolLogo: "",
     companyLogo: "",
     createdAt: new Date().toISOString()

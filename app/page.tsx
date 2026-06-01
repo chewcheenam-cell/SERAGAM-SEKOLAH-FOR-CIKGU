@@ -91,6 +91,8 @@ export default function Home() {
         schoolName: meta.schoolName || "Unnamed School",
         quotationNo: meta.quotationNo,
         projectNo: meta.projectNo,
+        invoiceNo: meta.invoiceNo,
+        designCode: meta.designCode,
         schoolLogo: meta.schoolLogo,
         companyLogo: meta.companyLogo,
         sourceFileName,
@@ -119,6 +121,8 @@ export default function Home() {
       schoolName: meta.schoolName || "School Name",
       quotationNo: meta.quotationNo,
       projectNo: meta.projectNo,
+      invoiceNo: meta.invoiceNo,
+      designCode: meta.designCode,
       shareToken: meta.projectNo,
       pricing,
       rows: validRows.map((row) => ({
@@ -149,6 +153,8 @@ export default function Home() {
       schoolName: meta.schoolName || "School Name",
       quotationNo: meta.quotationNo,
       projectNo: meta.projectNo,
+      invoiceNo: meta.invoiceNo,
+      designCode: meta.designCode,
       schoolLogo: meta.schoolLogo,
       companyLogo: meta.companyLogo,
       sourceFileName,
@@ -192,6 +198,8 @@ export default function Home() {
       schoolName: project.schoolName,
       quotationNo: refs.quotationNo,
       projectNo: refs.projectNo,
+      invoiceNo: project.invoiceNo ?? "",
+      designCode: project.designCode ?? "",
       schoolLogo: project.schoolLogo ?? "",
       companyLogo: project.companyLogo ?? "",
       createdAt: new Date().toISOString()
@@ -209,6 +217,8 @@ export default function Home() {
       schoolName: project.schoolName,
       quotationNo: project.quotationNo,
       projectNo: project.projectNo,
+      invoiceNo: project.invoiceNo ?? "",
+      designCode: project.designCode ?? "",
       schoolLogo: project.schoolLogo ?? "",
       companyLogo: project.companyLogo ?? "",
       createdAt: project.createdAt
@@ -299,7 +309,7 @@ export default function Home() {
 
   const filteredProjects = projects.filter((project) => {
     const q = search.toLowerCase();
-    return [project.schoolName, project.quotationNo, project.projectNo].some((value) => value.toLowerCase().includes(q));
+    return [project.schoolName, project.quotationNo, project.projectNo, project.invoiceNo ?? "", project.designCode ?? ""].some((value) => value.toLowerCase().includes(q));
   });
 
   if (!isAuthed) {
@@ -375,6 +385,14 @@ export default function Home() {
             <label className="mb-4 block">
               <span className="mb-2 block text-sm font-semibold text-slate-700">School Name</span>
               <input value={meta.schoolName} onChange={(event) => setMeta({ ...meta, schoolName: event.target.value })} placeholder="SK Taman Cemerlang" className="w-full rounded-md border border-batikara-line px-3 py-2.5 outline-none focus:border-batikara-blue" />
+            </label>
+            <label className="mb-4 block">
+              <span className="mb-2 block text-sm font-semibold text-slate-700">Invoice Number</span>
+              <input value={meta.invoiceNo} onChange={(event) => setMeta({ ...meta, invoiceNo: event.target.value })} placeholder="INV-001" className="w-full rounded-md border border-batikara-line px-3 py-2.5 outline-none focus:border-batikara-blue" />
+            </label>
+            <label className="mb-4 block">
+              <span className="mb-2 block text-sm font-semibold text-slate-700">Design Batik Code</span>
+              <input value={meta.designCode} onChange={(event) => setMeta({ ...meta, designCode: event.target.value })} placeholder="BTK-2026-A" className="w-full rounded-md border border-batikara-line px-3 py-2.5 outline-none focus:border-batikara-blue" />
             </label>
             <div className="grid gap-3 text-sm">
               <InfoLine label="Quotation No." value={meta.quotationNo} />
@@ -605,6 +623,7 @@ function PaymentPanel({ meta, rows, errors, summary, deliveryTotal, onDeliveryCh
             <div>
               <h2 className="text-2xl font-bold text-batikara-navy">{meta.schoolName || "School Name"}</h2>
               <p className="text-sm text-slate-600">Quotation {meta.quotationNo} · Project {meta.projectNo}</p>
+              <p className="text-sm text-slate-600">Invoice {meta.invoiceNo || "-"} · Design {meta.designCode || "-"}</p>
             </div>
           </div>
           {meta.companyLogo ? <img src={meta.companyLogo} alt="Company logo" className="h-16 w-24 object-contain" /> : null}
@@ -612,6 +631,7 @@ function PaymentPanel({ meta, rows, errors, summary, deliveryTotal, onDeliveryCh
 
         <Summary summary={summary} />
         <PaymentTable rows={rows} summary={summary} deliveryTotal={deliveryTotal} onDeliveryChange={onDeliveryChange} onUpdateRow={onUpdateRow} onRemoveRow={onRemoveRow} />
+        <PendingRemark rows={rows} deliveryPerPerson={summary.deliveryPerPax ?? 0} />
 
         <div className="no-print mt-5 flex flex-wrap gap-3">
           <button onClick={onSave} className="inline-flex items-center gap-2 rounded-md bg-batikara-navy px-4 py-2.5 font-semibold text-white"><Save className="h-4 w-4" />Save</button>
@@ -622,6 +642,27 @@ function PaymentPanel({ meta, rows, errors, summary, deliveryTotal, onDeliveryCh
         </div>
       </section>
     </>
+  );
+}
+
+function PendingRemark({ rows, deliveryPerPerson }: { rows: CalculatedRow[]; deliveryPerPerson: number }) {
+  const pendingRows = rows.filter((row) => row.nama.trim() && !row.paid);
+  return (
+    <section className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
+      <h3 className="font-bold text-amber-900">Guru Belum Bayar</h3>
+      {pendingRows.length ? (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {pendingRows.map((row) => (
+            <div key={row.id} className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm">
+              <span className="font-bold text-batikara-navy">{row.nama}</span>
+              <span className="ml-2 text-slate-600">{formatCurrency(row.totalPrice + deliveryPerPerson)}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm font-semibold text-green-700">Semua guru sudah bayar.</p>
+      )}
+    </section>
   );
 }
 
@@ -821,6 +862,7 @@ function HistoryPanel({ projects, search, onSearch, onLoad, onDuplicate, onDelet
             <div>
               <h3 className="font-bold text-batikara-navy">{project.schoolName}</h3>
               <p className="text-sm text-slate-600">{project.quotationNo} · {project.projectNo} · {formatCurrency(project.summary.grandTotal)}</p>
+              <p className="text-sm text-slate-600">Invoice {project.invoiceNo || "-"} · Design {project.designCode || "-"}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => onLoad(project)} className="rounded-md border border-batikara-line px-3 py-2 text-sm font-semibold text-batikara-navy">Edit</button>

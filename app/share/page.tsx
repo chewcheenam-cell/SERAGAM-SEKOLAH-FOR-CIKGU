@@ -23,6 +23,8 @@ type SharePayload = {
   schoolName: string;
   quotationNo: string;
   projectNo: string;
+  invoiceNo?: string;
+  designCode?: string;
   shareToken?: string;
   deliveryTotal?: number;
   pricing?: PricingSettings;
@@ -95,7 +97,7 @@ export default function SharePage() {
 
     const { data, error } = await supabase
       .from("projects")
-      .select("school_name, quotation_no, project_no, pricing, rows, summary")
+      .select("school_name, quotation_no, project_no, invoice_no, design_code, pricing, rows, summary")
       .or(`project_no.eq.${token},quotation_no.eq.${token}`)
       .limit(1)
       .maybeSingle();
@@ -107,6 +109,8 @@ export default function SharePage() {
       schoolName: String(data.school_name ?? "School Name"),
       quotationNo: String(data.quotation_no ?? token),
       projectNo: String(data.project_no ?? token),
+      invoiceNo: String(data.invoice_no ?? ""),
+      designCode: String(data.design_code ?? ""),
       shareToken: String(data.project_no ?? token),
       pricing: data.pricing as PricingSettings,
       deliveryTotal: Number(summary?.deliveryTotal ?? 0),
@@ -265,6 +269,7 @@ export default function SharePage() {
             <p className="text-sm font-semibold uppercase text-batikara-blue">Payment Checklist</p>
             <h1 className="text-2xl font-bold text-batikara-navy">{payload.schoolName}</h1>
             <p className="text-sm text-slate-600">Quotation {payload.quotationNo} · Project {payload.projectNo}</p>
+            <p className="text-sm text-slate-600">Invoice {payload.invoiceNo || "-"} · Design {payload.designCode || "-"}</p>
           </div>
           <div className="no-print flex flex-wrap gap-2">
             <button onClick={() => loadSharedRows()} className="inline-flex items-center gap-2 rounded-md border border-batikara-line bg-white px-4 py-2.5 font-semibold text-batikara-navy">
@@ -358,8 +363,30 @@ export default function SharePage() {
             </div>
           ) : null}
         </div>
+        <PendingRemark rows={rows} deliveryPerPerson={summary.deliveryPerPerson} />
       </section>
     </main>
+  );
+}
+
+function PendingRemark({ rows, deliveryPerPerson }: { rows: ShareRow[]; deliveryPerPerson: number }) {
+  const pendingRows = rows.filter((row) => row.nama.trim() && !row.paid);
+  return (
+    <section className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
+      <h2 className="font-bold text-amber-900">Guru Belum Bayar</h2>
+      {pendingRows.length ? (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {pendingRows.map((row) => (
+            <div key={row.id} className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm">
+              <span className="font-bold text-batikara-navy">{row.nama}</span>
+              <span className="ml-2 text-slate-600">{formatCurrency(row.totalPrice + deliveryPerPerson)}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm font-semibold text-green-700">Semua guru sudah bayar.</p>
+      )}
+    </section>
   );
 }
 
