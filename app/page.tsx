@@ -20,7 +20,7 @@ type BulkOrderConfig = {
   deliveryFee: number;
 };
 
-const ITEM_OPTIONS = ["Kemeja", "Kurung Moden", "Kurung Pahang"];
+const ITEM_OPTIONS = ["Kemeja", "Kurung Moden", "Kurung Pahang", "Kain Pasang"];
 const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL", "Custom Size"];
 const EXTRA_SIZE_OPTIONS = new Set(["3XL", "4XL", "5XL"]);
 const CUSTOM_SIZE_ADDON = 10;
@@ -84,24 +84,28 @@ export default function Home() {
       return;
     }
 
-    const record = await repo.saveProject({
-      id: meta.id,
-      schoolName: meta.schoolName || "Unnamed School",
-      quotationNo: meta.quotationNo,
-      projectNo: meta.projectNo,
-      schoolLogo: meta.schoolLogo,
-      companyLogo: meta.companyLogo,
-      sourceFileName,
-      pricing,
-      rows: validRows,
-      summary,
-      createdAt: meta.createdAt
-    });
+    try {
+      const record = await repo.saveProject({
+        id: meta.id,
+        schoolName: meta.schoolName || "Unnamed School",
+        quotationNo: meta.quotationNo,
+        projectNo: meta.projectNo,
+        schoolLogo: meta.schoolLogo,
+        companyLogo: meta.companyLogo,
+        sourceFileName,
+        pricing,
+        rows: validRows,
+        summary,
+        createdAt: meta.createdAt
+      });
 
-    await sendProjectToGoogleSheets(record);
-    setProjects(await repo.listProjects());
-    setMeta((current) => ({ ...current, id: record.id }));
-    setNotice("Project saved.");
+      await sendProjectToGoogleSheets(record);
+      setProjects(await repo.listProjects());
+      setMeta((current) => ({ ...current, id: record.id }));
+      setNotice("Project saved. You can open it in History.");
+    } catch (error) {
+      setNotice(error instanceof Error ? `Could not save project: ${error.message}` : "Could not save project.");
+    }
   }
 
   async function openShareView() {
@@ -398,6 +402,7 @@ function getSizeLabel(size: string) {
 
 function getItemPrice(item: string, pricing: PricingSettings) {
   const normalized = item.toLowerCase();
+  if (normalized.includes("kain")) return pricing.kainPasangPerMeter;
   if (normalized.includes("kemeja")) return pricing.kemeja;
   if (normalized.includes("pahang")) return pricing.kurungPahang;
   if (normalized.includes("moden") || normalized.includes("modern")) return pricing.kurungModen;

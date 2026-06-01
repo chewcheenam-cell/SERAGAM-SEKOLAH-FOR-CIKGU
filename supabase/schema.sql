@@ -58,33 +58,65 @@ alter table public.pricing_settings enable row level security;
 alter table public.projects enable row level security;
 alter table public.share_payment_rows enable row level security;
 
+drop policy if exists "Admins can read admin users" on public.admin_users;
 create policy "Admins can read admin users"
 on public.admin_users for select
 to authenticated
 using (auth.uid() = id or exists (select 1 from public.admin_users au where au.id = auth.uid()));
 
+drop policy if exists "Admins manage pricing" on public.pricing_settings;
 create policy "Admins manage pricing"
 on public.pricing_settings for all
 to authenticated
 using (exists (select 1 from public.admin_users au where au.id = auth.uid()))
 with check (exists (select 1 from public.admin_users au where au.id = auth.uid()));
 
+drop policy if exists "Demo admin can read pricing" on public.pricing_settings;
+create policy "Demo admin can read pricing"
+on public.pricing_settings for select
+to anon
+using (true);
+
+drop policy if exists "Demo admin can update pricing" on public.pricing_settings;
+create policy "Demo admin can update pricing"
+on public.pricing_settings for all
+to anon
+using (true)
+with check (true);
+
+drop policy if exists "Admins manage projects" on public.projects;
 create policy "Admins manage projects"
 on public.projects for all
 to authenticated
 using (exists (select 1 from public.admin_users au where au.id = auth.uid()))
 with check (exists (select 1 from public.admin_users au where au.id = auth.uid()));
 
+drop policy if exists "Demo admin can read projects" on public.projects;
+create policy "Demo admin can read projects"
+on public.projects for select
+to anon
+using (true);
+
+drop policy if exists "Demo admin can save projects" on public.projects;
+create policy "Demo admin can save projects"
+on public.projects for all
+to anon
+using (true)
+with check (true);
+
+drop policy if exists "Anyone with share token can read shared payment rows" on public.share_payment_rows;
 create policy "Anyone with share token can read shared payment rows"
 on public.share_payment_rows for select
 to anon, authenticated
 using (true);
 
+drop policy if exists "Anyone with share token can update shared payment rows" on public.share_payment_rows;
 create policy "Anyone with share token can update shared payment rows"
 on public.share_payment_rows for insert
 to anon, authenticated
 with check (true);
 
+drop policy if exists "Anyone with share token can modify shared payment rows" on public.share_payment_rows;
 create policy "Anyone with share token can modify shared payment rows"
 on public.share_payment_rows for update
 to anon, authenticated

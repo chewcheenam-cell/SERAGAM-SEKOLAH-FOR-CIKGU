@@ -39,8 +39,9 @@ export function createRepository() {
 
     async getPricing(): Promise<PricingSettings> {
       if (supabase) {
-        const { data } = await supabase.from("pricing_settings").select("*").limit(1).maybeSingle();
+        const { data, error } = await supabase.from("pricing_settings").select("*").limit(1).maybeSingle();
         if (data) return normalizePricing(fromPricingRow(data));
+        if (error) return normalizePricing(readLocal(PRICING_KEY, DEFAULT_PRICING));
       }
       return normalizePricing(readLocal(PRICING_KEY, DEFAULT_PRICING));
     },
@@ -49,10 +50,14 @@ export function createRepository() {
       if (supabase) {
         const { data } = await supabase.from("pricing_settings").select("id").limit(1).maybeSingle();
         if (data?.id) {
-          await supabase.from("pricing_settings").update(toPricingRow(pricing)).eq("id", data.id);
+          const { error } = await supabase.from("pricing_settings").update(toPricingRow(pricing)).eq("id", data.id);
+          if (!error) return;
+          writeLocal(PRICING_KEY, pricing);
           return;
         }
-        await supabase.from("pricing_settings").insert(toPricingRow(pricing));
+        const { error } = await supabase.from("pricing_settings").insert(toPricingRow(pricing));
+        if (!error) return;
+        writeLocal(PRICING_KEY, pricing);
         return;
       }
       writeLocal(PRICING_KEY, pricing);
@@ -60,8 +65,8 @@ export function createRepository() {
 
     async listProjects(): Promise<ProjectRecord[]> {
       if (supabase) {
-        const { data } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
-        return (data ?? []).map(fromProjectRow);
+        const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
+        if (!error) return (data ?? []).map(fromProjectRow);
       }
       return readLocal<ProjectRecord[]>(PROJECTS_KEY, []).map(normalizeProjectRecord).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     },
@@ -70,8 +75,7 @@ export function createRepository() {
       const record = { ...project, id: project.id || crypto.randomUUID(), createdAt: project.createdAt || new Date().toISOString() };
       if (supabase) {
         const { data, error } = await supabase.from("projects").upsert(toProjectRow(record), { onConflict: "id" }).select("*").single();
-        if (error) throw error;
-        return fromProjectRow(data);
+        if (!error) return fromProjectRow(data);
       }
 
       const projects = readLocal<ProjectRecord[]>(PROJECTS_KEY, []);
