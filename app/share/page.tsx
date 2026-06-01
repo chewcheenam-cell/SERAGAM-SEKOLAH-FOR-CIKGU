@@ -280,61 +280,66 @@ export default function SharePage() {
           <table className="w-full min-w-[780px] border-collapse text-left text-sm">
             <thead>
               <tr className="bg-batikara-navy text-white">
-                {["Nama", "Item", "Saiz", "Poket", "Qty", "Amount", "Paid?", "Bank Slip"].map((heading) => (
+                {["Nama", "Item", "Saiz", "Poket", "Qty", "Item Amount", "Postage", "Total Pay", "Paid?", "Bank Slip"].map((heading) => (
                   <th key={heading} className="px-3 py-3 font-semibold">{heading}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-b border-batikara-line">
-                  <td className="px-3 py-3">
-                    <input value={row.nama} onChange={(event) => updateRow(row.id, { nama: event.target.value })} className="w-40 rounded-md border border-batikara-line px-2 py-2 font-semibold outline-none focus:border-batikara-blue" />
-                  </td>
-                  <td className="px-3 py-3">
-                    <select value={row.jenisPakaian} onChange={(event) => updateRow(row.id, { jenisPakaian: event.target.value })} className="w-40 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue">
-                      {ITEM_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-3 py-3">
-                    <select value={row.saiz} onChange={(event) => updateRow(row.id, { saiz: event.target.value })} className="w-24 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue">
-                      <option value="">-</option>
-                      {SIZE_OPTIONS.map((size) => <option key={size} value={size}>{getSizeLabel(size)}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-3 py-3">
-                    <label className={`inline-flex min-w-20 items-center justify-center gap-2 rounded-md border px-3 py-2 font-semibold ${row.poket ? "border-blue-200 bg-blue-50 text-batikara-navy" : "border-batikara-line bg-white text-slate-600"}`}>
-                      <input type="checkbox" checked={row.poket} onChange={(event) => updateRow(row.id, { poket: event.target.checked })} className="h-4 w-4 accent-batikara-blue" />
-                      {row.poket ? "Yes +RM3" : "No"}
-                    </label>
-                  </td>
-                  <td className="px-3 py-3">{row.quantity}</td>
-                  <td className="px-3 py-3 font-bold text-batikara-navy">{formatCurrency(row.totalPrice)}</td>
-                  <td className="px-3 py-3">
-                    <label className={`inline-flex min-w-28 items-center justify-center gap-2 rounded-md border px-3 py-2 font-semibold ${row.paid ? "border-green-200 bg-green-50 text-green-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
-                      <input
-                        type="checkbox"
-                        checked={row.paid}
-                        onChange={(event) => updateRow(row.id, { paid: event.target.checked })}
-                        className="h-4 w-4 accent-batikara-blue"
-                      />
-                      {row.paid ? "Paid" : "Not Yet"}
-                    </label>
-                  </td>
-                  <td className="px-3 py-3">
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-batikara-line px-3 py-2 font-semibold text-batikara-navy">
-                      <Upload className="h-4 w-4" />
-                      Upload
-                      <input type="file" accept="image/*,.pdf" className="hidden" onChange={(event) => event.target.files?.[0] && handleSlipUpload(row, event.target.files[0])} />
-                    </label>
-                    {row.slipName ? (
-                      <div className="mt-2 text-xs text-slate-600">
-                        {row.slipDataUrl ? <a href={row.slipDataUrl} target="_blank" rel="noreferrer" className="font-semibold text-batikara-blue underline">{row.slipName}</a> : row.slipName}
-                      </div>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
+              {rows.map((row) => {
+                const totalPay = row.totalPrice + summary.deliveryPerPerson;
+                return (
+                  <tr key={row.id} className="border-b border-batikara-line">
+                    <td className="px-3 py-3">
+                      <input value={row.nama} onChange={(event) => updateRow(row.id, { nama: event.target.value })} className="w-40 rounded-md border border-batikara-line px-2 py-2 font-semibold outline-none focus:border-batikara-blue" />
+                    </td>
+                    <td className="px-3 py-3">
+                      <select value={row.jenisPakaian} onChange={(event) => updateRow(row.id, { jenisPakaian: event.target.value })} className="w-40 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue">
+                        {ITEM_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-3 py-3">
+                      <select value={row.saiz} onChange={(event) => updateRow(row.id, { saiz: event.target.value })} className="w-24 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue">
+                        <option value="">-</option>
+                        {SIZE_OPTIONS.map((size) => <option key={size} value={size}>{getSizeLabel(size)}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-3 py-3">
+                      <label className={`inline-flex min-w-20 items-center justify-center gap-2 rounded-md border px-3 py-2 font-semibold ${row.poket ? "border-blue-200 bg-blue-50 text-batikara-navy" : "border-batikara-line bg-white text-slate-600"}`}>
+                        <input type="checkbox" checked={row.poket} onChange={(event) => updateRow(row.id, { poket: event.target.checked })} className="h-4 w-4 accent-batikara-blue" />
+                        {row.poket ? "Yes +RM3" : "No"}
+                      </label>
+                    </td>
+                    <td className="px-3 py-3">{row.quantity}</td>
+                    <td className="px-3 py-3 font-bold text-batikara-navy">{formatCurrency(row.totalPrice)}</td>
+                    <td className="px-3 py-3 font-semibold text-batikara-navy">{formatCurrency(summary.deliveryPerPerson)}</td>
+                    <td className="px-3 py-3 font-bold text-batikara-navy">{formatCurrency(totalPay)}</td>
+                    <td className="px-3 py-3">
+                      <label className={`inline-flex min-w-28 items-center justify-center gap-2 rounded-md border px-3 py-2 font-semibold ${row.paid ? "border-green-200 bg-green-50 text-green-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                        <input
+                          type="checkbox"
+                          checked={row.paid}
+                          onChange={(event) => updateRow(row.id, { paid: event.target.checked })}
+                          className="h-4 w-4 accent-batikara-blue"
+                        />
+                        {row.paid ? "Paid" : "Not Yet"}
+                      </label>
+                    </td>
+                    <td className="px-3 py-3">
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-batikara-line px-3 py-2 font-semibold text-batikara-navy">
+                        <Upload className="h-4 w-4" />
+                        Upload
+                        <input type="file" accept="image/*,.pdf" className="hidden" onChange={(event) => event.target.files?.[0] && handleSlipUpload(row, event.target.files[0])} />
+                      </label>
+                      {row.slipName ? (
+                        <div className="mt-2 text-xs text-slate-600">
+                          {row.slipDataUrl ? <a href={row.slipDataUrl} target="_blank" rel="noreferrer" className="font-semibold text-batikara-blue underline">{row.slipName}</a> : row.slipName}
+                        </div>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {summary.deliveryTotal ? (

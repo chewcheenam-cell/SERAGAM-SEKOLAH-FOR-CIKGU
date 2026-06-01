@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calculator, Copy, Download, ExternalLink, FileDown, FileSpreadsheet, History, LogIn, Plus, Printer, Save, Search, Settings, Shield, Upload, XCircle } from "lucide-react";
+import { Calculator, Copy, Download, ExternalLink, FileDown, FileSpreadsheet, History, LogIn, Plus, Printer, Save, Search, Settings, Shield, Trash2, Upload, XCircle } from "lucide-react";
 import { calculatePaymentSummary, createBlankPaymentRow, createEmptyProjectMeta, createReference, DEFAULT_PRICING, formatCurrency, normalizeCalculatedRow, normalizeTeacherPaymentRows, type CalculatedRow, type PricingSettings, type ProjectRecord } from "@/lib/calculator";
 import { exportQuotationPdf } from "@/lib/pdf";
 import { exportQuotationWorkbook, parseWorkbook } from "@/lib/workbook";
@@ -218,6 +218,14 @@ export default function Home() {
     setActiveTab("payment");
   }
 
+  async function deleteProject(project: ProjectRecord) {
+    const ok = window.confirm(`Delete ${project.schoolName || project.projectNo} from history?`);
+    if (!ok) return;
+    await repo.deleteProject(project.id);
+    setProjects(await repo.listProjects());
+    setNotice("Project deleted from History.");
+  }
+
   function updatePaymentRow(id: string, patch: Partial<CalculatedRow>) {
     setPaymentRows((rows) => rows.map((row) => {
       if (row.id !== id) return row;
@@ -414,7 +422,7 @@ export default function Home() {
           {activeTab === "pricing" ? <PricingPanel pricing={pricing} onChange={setPricing} onSave={handlePricingSave} /> : null}
 
           {activeTab === "history" ? (
-            <HistoryPanel projects={filteredProjects} search={search} onSearch={setSearch} onLoad={loadProject} onDuplicate={duplicateProject} />
+            <HistoryPanel projects={filteredProjects} search={search} onSearch={setSearch} onLoad={loadProject} onDuplicate={duplicateProject} onDelete={deleteProject} />
           ) : null}
         </section>
       </div>
@@ -678,73 +686,82 @@ function PaymentTable({ rows, summary, deliveryTotal, onDeliveryChange, onUpdate
       <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
         <thead>
           <tr className="bg-batikara-navy text-white">
-            {["Nama Cikgu", "Jawatan", "Item", "Saiz", "Poket", "Qty", "Amount to Pay", "Paid?", "Total", ""].map((heading) => (
+            {["Nama Cikgu", "Jawatan", "Item", "Saiz", "Poket", "Qty", "Amount to Pay", "Paid?", "Item Total", "Postage Each", "Total + Postage", ""].map((heading) => (
               <th key={heading} className="px-3 py-3 font-semibold">{heading}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.length ? rows.map((row) => (
-            <tr key={row.id} className="border-b border-batikara-line">
-              <td className="px-3 py-3">
-                <input value={row.nama} onChange={(event) => onUpdateRow(row.id, { nama: event.target.value })} className="w-44 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue" />
-              </td>
-              <td className="px-3 py-3">
-                <input value={row.jawatan} onChange={(event) => onUpdateRow(row.id, { jawatan: event.target.value })} className="w-36 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue" />
-              </td>
-              <td className="px-3 py-3">
-                <select value={row.jenisPakaian} onChange={(event) => onUpdateRow(row.id, { jenisPakaian: event.target.value })} className="w-40 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue">
-                  {ITEM_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </td>
-              <td className="px-3 py-3">
-                <select value={row.saiz} onChange={(event) => onUpdateRow(row.id, { saiz: event.target.value })} className="w-24 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue">
-                  <option value="">-</option>
-                  {SIZE_OPTIONS.map((size) => <option key={size} value={size}>{getSizeLabel(size)}</option>)}
-                </select>
-              </td>
-              <td className="px-3 py-3">
-                <label className={`inline-flex min-w-24 items-center justify-center gap-2 rounded-md border px-3 py-2 font-semibold ${row.poket ? "border-blue-200 bg-blue-50 text-batikara-navy" : "border-batikara-line bg-white text-slate-600"}`}>
-                  <input type="checkbox" checked={row.poket} onChange={(event) => onUpdateRow(row.id, { poket: event.target.checked })} className="h-4 w-4 accent-batikara-blue" />
-                  +RM3
-                </label>
-              </td>
-              <td className="px-3 py-3">
-                <input type="number" min="1" value={row.quantity} onChange={(event) => onUpdateRow(row.id, { quantity: Math.max(1, Number(event.target.value)) })} className="w-20 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue" />
-              </td>
-              <td className="px-3 py-3">
-                <input type="number" min="0" step="0.01" value={row.unitPrice} onChange={(event) => onUpdateRow(row.id, { unitPrice: Number(event.target.value) })} className="w-32 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue" />
-              </td>
-              <td className="px-3 py-3">
-                <label className={`inline-flex min-w-28 items-center justify-center gap-2 rounded-md border px-3 py-2 font-semibold ${row.paid ? "border-green-200 bg-green-50 text-green-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
-                  <input type="checkbox" checked={row.paid} onChange={(event) => onUpdateRow(row.id, { paid: event.target.checked })} className="h-4 w-4 accent-batikara-blue" />
-                  {row.paid ? "Paid" : "Not Yet"}
-                </label>
-              </td>
-              <td className="px-3 py-3 font-bold text-batikara-navy">{formatCurrency(row.totalPrice)}</td>
-              <td className="px-3 py-3 text-right">
-                <button onClick={() => onRemoveRow(row.id)} className="rounded-md border border-red-200 px-3 py-2 text-red-700">Remove</button>
-              </td>
-            </tr>
-          )) : (
+          {rows.length ? rows.map((row) => {
+            const totalWithPostage = row.totalPrice + deliveryPerPerson;
+            return (
+              <tr key={row.id} className="border-b border-batikara-line">
+                <td className="px-3 py-3">
+                  <input value={row.nama} onChange={(event) => onUpdateRow(row.id, { nama: event.target.value })} className="w-44 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue" />
+                </td>
+                <td className="px-3 py-3">
+                  <input value={row.jawatan} onChange={(event) => onUpdateRow(row.id, { jawatan: event.target.value })} className="w-36 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue" />
+                </td>
+                <td className="px-3 py-3">
+                  <select value={row.jenisPakaian} onChange={(event) => onUpdateRow(row.id, { jenisPakaian: event.target.value })} className="w-40 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue">
+                    {ITEM_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                </td>
+                <td className="px-3 py-3">
+                  <select value={row.saiz} onChange={(event) => onUpdateRow(row.id, { saiz: event.target.value })} className="w-24 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue">
+                    <option value="">-</option>
+                    {SIZE_OPTIONS.map((size) => <option key={size} value={size}>{getSizeLabel(size)}</option>)}
+                  </select>
+                </td>
+                <td className="px-3 py-3">
+                  <label className={`inline-flex min-w-24 items-center justify-center gap-2 rounded-md border px-3 py-2 font-semibold ${row.poket ? "border-blue-200 bg-blue-50 text-batikara-navy" : "border-batikara-line bg-white text-slate-600"}`}>
+                    <input type="checkbox" checked={row.poket} onChange={(event) => onUpdateRow(row.id, { poket: event.target.checked })} className="h-4 w-4 accent-batikara-blue" />
+                    +RM3
+                  </label>
+                </td>
+                <td className="px-3 py-3">
+                  <input type="number" min="1" value={row.quantity} onChange={(event) => onUpdateRow(row.id, { quantity: Math.max(1, Number(event.target.value)) })} className="w-20 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue" />
+                </td>
+                <td className="px-3 py-3">
+                  <input type="number" min="0" step="0.01" value={row.unitPrice} onChange={(event) => onUpdateRow(row.id, { unitPrice: Number(event.target.value) })} className="w-32 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue" />
+                </td>
+                <td className="px-3 py-3">
+                  <label className={`inline-flex min-w-28 items-center justify-center gap-2 rounded-md border px-3 py-2 font-semibold ${row.paid ? "border-green-200 bg-green-50 text-green-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                    <input type="checkbox" checked={row.paid} onChange={(event) => onUpdateRow(row.id, { paid: event.target.checked })} className="h-4 w-4 accent-batikara-blue" />
+                    {row.paid ? "Paid" : "Not Yet"}
+                  </label>
+                </td>
+                <td className="px-3 py-3 font-bold text-batikara-navy">{formatCurrency(row.totalPrice)}</td>
+                <td className="px-3 py-3 font-semibold text-batikara-navy">{formatCurrency(deliveryPerPerson)}</td>
+                <td className="px-3 py-3 font-bold text-batikara-navy">{formatCurrency(totalWithPostage)}</td>
+                <td className="px-3 py-3 text-right">
+                  <button onClick={() => onRemoveRow(row.id)} className="rounded-md border border-red-200 px-3 py-2 text-red-700">Remove</button>
+                </td>
+              </tr>
+            );
+          }) : (
             <tr>
-              <td colSpan={10} className="px-3 py-8 text-center text-slate-500">Upload a cikgu list or add names manually.</td>
+              <td colSpan={12} className="px-3 py-8 text-center text-slate-500">Upload a cikgu list or add names manually.</td>
             </tr>
           )}
         </tbody>
         <tfoot>
           <tr className="border-t-2 border-batikara-navy bg-batikara-sky">
-            <td colSpan={6} className="px-3 py-3 text-right font-bold text-batikara-navy">Delivery Fee</td>
+            <td colSpan={6} className="px-3 py-3 text-right font-bold text-batikara-navy">Total Postage Fee</td>
             <td className="px-3 py-3">
               <input type="number" min="0" step="0.01" value={deliveryTotal} onChange={(event) => onDeliveryChange(Math.max(0, Number(event.target.value) || 0))} className="w-32 rounded-md border border-batikara-line px-2 py-2 outline-none focus:border-batikara-blue" />
             </td>
-            <td colSpan={3} className="px-3 py-3 font-semibold text-batikara-navy">
+            <td colSpan={5} className="px-3 py-3 font-semibold text-batikara-navy">
               {formatCurrency(deliveryTotal)} ÷ {summary.totalPax || 0} orang = {formatCurrency(deliveryPerPerson)} each
             </td>
           </tr>
+          <tr className="bg-batikara-sky">
+            <td colSpan={7} className="px-3 py-3 text-right font-bold text-batikara-navy">Total Postage Remaining</td>
+            <td colSpan={5} className="px-3 py-3 font-bold text-batikara-navy">{formatCurrency(deliveryTotal)}</td>
+          </tr>
           <tr className="bg-white">
             <td colSpan={7} className="px-3 py-3 text-right font-bold text-batikara-navy">Final Total</td>
-            <td colSpan={3} className="px-3 py-3 text-xl font-bold text-batikara-navy">{formatCurrency(summary.grandTotal)}</td>
+            <td colSpan={5} className="px-3 py-3 text-xl font-bold text-batikara-navy">{formatCurrency(summary.grandTotal)}</td>
           </tr>
         </tfoot>
       </table>
@@ -784,13 +801,13 @@ function PricingPanel({ pricing, onChange, onSave }: { pricing: PricingSettings;
   );
 }
 
-function HistoryPanel({ projects, search, onSearch, onLoad, onDuplicate }: { projects: ProjectRecord[]; search: string; onSearch: (value: string) => void; onLoad: (project: ProjectRecord) => void; onDuplicate: (project: ProjectRecord) => void }) {
+function HistoryPanel({ projects, search, onSearch, onLoad, onDuplicate, onDelete }: { projects: ProjectRecord[]; search: string; onSearch: (value: string) => void; onLoad: (project: ProjectRecord) => void; onDuplicate: (project: ProjectRecord) => void; onDelete: (project: ProjectRecord) => void }) {
   return (
     <section className="rounded-lg border border-batikara-line bg-white p-5 shadow-panel">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-bold text-batikara-navy">Historical Projects</h2>
-          <p className="text-sm text-slate-600">Search, open, and duplicate previous quotations.</p>
+          <p className="text-sm text-slate-600">Search, edit, duplicate, and delete previous quotations.</p>
         </div>
         <label className="relative block sm:w-72">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -804,9 +821,10 @@ function HistoryPanel({ projects, search, onSearch, onLoad, onDuplicate }: { pro
               <h3 className="font-bold text-batikara-navy">{project.schoolName}</h3>
               <p className="text-sm text-slate-600">{project.quotationNo} · {project.projectNo} · {formatCurrency(project.summary.grandTotal)}</p>
             </div>
-            <div className="flex gap-2">
-              <button onClick={() => onLoad(project)} className="rounded-md border border-batikara-line px-3 py-2 text-sm font-semibold text-batikara-navy">Open</button>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => onLoad(project)} className="rounded-md border border-batikara-line px-3 py-2 text-sm font-semibold text-batikara-navy">Edit</button>
               <button onClick={() => onDuplicate(project)} className="inline-flex items-center gap-2 rounded-md bg-batikara-blue px-3 py-2 text-sm font-semibold text-white"><Copy className="h-4 w-4" />Duplicate</button>
+              <button onClick={() => onDelete(project)} className="inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-700"><Trash2 className="h-4 w-4" />Delete</button>
             </div>
           </article>
         )) : <p className="py-8 text-center text-slate-500">No saved projects yet.</p>}

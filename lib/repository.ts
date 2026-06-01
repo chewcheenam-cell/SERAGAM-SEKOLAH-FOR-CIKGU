@@ -86,6 +86,13 @@ export function createRepository() {
       }
 
       return record;
+    },
+
+    async deleteProject(id: string) {
+      deleteLocalProject(id);
+      if (supabase) {
+        await supabase.from("projects").delete().eq("id", id);
+      }
     }
   };
 }
@@ -99,6 +106,11 @@ function saveLocalProject(project: ProjectRecord) {
     companyLogo: ""
   };
   writeLocal(PROJECTS_KEY, [compactProject, ...withoutCurrent].slice(0, 30));
+}
+
+function deleteLocalProject(id: string) {
+  const projects = readLocal<ProjectRecord[]>(PROJECTS_KEY, []);
+  writeLocal(PROJECTS_KEY, projects.filter((project) => project.id !== id));
 }
 
 function mergeProjects(primary: ProjectRecord[], fallback: ProjectRecord[]) {
