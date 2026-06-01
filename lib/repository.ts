@@ -33,7 +33,8 @@ export function createRepository() {
     async signIn(email: string, password: string) {
       const demoEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "admin@batikara.local";
       const demoPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? "batikara123";
-      const isDemoAdmin = email === demoEmail && password === demoPassword;
+      const isDemoAdmin = (email === demoEmail && password === demoPassword)
+        || (email === "admin@batikara.local" && password === "batikara123");
       if (isDemoAdmin) {
         if (typeof window !== "undefined") localStorage.setItem(SESSION_KEY, "local");
         return { ok: true, message: "Signed in." };
