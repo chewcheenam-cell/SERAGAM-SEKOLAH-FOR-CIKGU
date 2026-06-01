@@ -152,10 +152,11 @@ export default function Home() {
     const token = encodeURIComponent(meta.projectNo);
     localStorage.setItem(`batikara.share.payload.${meta.projectNo}`, JSON.stringify(payload));
     localStorage.setItem(`batikara.share.payload.${meta.quotationNo}`, JSON.stringify(payload));
-    const url = `${window.location.origin}/share?token=${token}&data=${encoded}#data=${encoded}`;
-    await navigator.clipboard?.writeText(url);
-    window.open(url, "_blank", "noopener,noreferrer");
-    setNotice("Share view opened and link copied. Send that link to customer.");
+    const customerUrl = `${window.location.origin}/share?token=${token}`;
+    const previewUrl = `${customerUrl}#data=${encoded}`;
+    await navigator.clipboard?.writeText(customerUrl);
+    window.open(previewUrl, "_blank", "noopener,noreferrer");
+    setNotice("Short customer link copied. Send the copied link to customer.");
   }
 
   function duplicateProject(project: ProjectRecord) {
