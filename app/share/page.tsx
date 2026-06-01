@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Printer, RefreshCw, Upload } from "lucide-react";
+import { Eye, Printer, RefreshCw, Upload, X } from "lucide-react";
 import { DEFAULT_PRICING, formatCurrency, type PricingSettings } from "@/lib/calculator";
 import { getSupabaseClient } from "@/lib/supabase";
 
@@ -40,6 +40,7 @@ export default function SharePage() {
   const [payload, setPayload] = useState<SharePayload | null>(null);
   const [rows, setRows] = useState<ShareRow[]>([]);
   const [syncNotice, setSyncNotice] = useState("");
+  const [previewSlip, setPreviewSlip] = useState<ShareRow | null>(null);
   const shareToken = payload?.shareToken ?? payload?.projectNo ?? payload?.quotationNo ?? "";
 
   useEffect(() => {
@@ -157,7 +158,11 @@ export default function SharePage() {
       };
       return all;
     }, {});
-    localStorage.setItem(`batikara.share.${payload.quotationNo}`, JSON.stringify(savedRows));
+    try {
+      localStorage.setItem(`batikara.share.${payload.quotationNo}`, JSON.stringify(savedRows));
+    } catch {
+      setSyncNotice("Slip saved online, but this browser storage is full.");
+    }
   }, [payload, rows]);
 
   function updateRow(id: string, patch: Partial<ShareRow>) {
@@ -170,9 +175,13 @@ export default function SharePage() {
   }
 
   async function handleSlipUpload(row: ShareRow, file: File) {
-    const reader = new FileReader();
-    reader.onload = () => updateRow(row.id, { slipName: file.name, slipDataUrl: String(reader.result) });
-    reader.readAsDataURL(file);
+    try {
+      const slipDataUrl = file.type.startsWith("image/") ? await compressImageFile(file) : await fileToDataUrl(file);
+      updateRow(row.id, { slipName: file.name, slipDataUrl });
+      setSyncNotice("Bank slip uploaded. Click View to open it.");
+    } catch {
+      setSyncNotice("Could not upload slip. Try a smaller image.");
+    }
   }
 
   async function loadSharedRows(currentPayload = payload, currentRows = rows) {
@@ -347,8 +356,13 @@ export default function SharePage() {
                         <input type="file" accept="image/*,.pdf" className="hidden" onChange={(event) => event.target.files?.[0] && handleSlipUpload(row, event.target.files[0])} />
                       </label>
                       {row.slipName ? (
-                        <div className="mt-2 text-xs text-slate-600">
-                          {row.slipDataUrl ? <a href={row.slipDataUrl} target="_blank" rel="noreferrer" className="font-semibold text-batikara-blue underline">{row.slipName}</a> : row.slipName}
+                        <div className="mt-2 space-y-2 text-xs text-slate-600">
+                          {isImageSlip(row.slipDataUrl) ? <img src={row.slipDataUrl} alt={row.slipName} className="h-16 w-24 rounded-md border border-batikara-line object-cover" /> : null}
+                          <button type="button" onClick={() => setPreviewSlip(row)} className="inline-flex items-center gap-1 rounded-md border border-batikara-line px-2 py-1 font-semibold text-batikara-blue">
+                            <Eye className="h-3.5 w-3.5" />
+                            View
+                          </button>
+                          <div className="max-w-36 truncate">{row.slipName}</div>
                         </div>
                       ) : null}
                     </td>
@@ -365,8 +379,77 @@ export default function SharePage() {
         </div>
         <PendingRemark rows={rows} deliveryPerPerson={summary.deliveryPerPerson} />
       </section>
+      {previewSlip ? <SlipPreview row={previewSlip} onClose={() => setPreviewSlip(null)} /> : null}
     </main>
   );
+}
+
+function SlipPreview({ row, onClose }: { row: ShareRow; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 p-4">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-panel">
+        <div className="flex items-center justify-between border-b border-batikara-line px-4 py-3">
+          <div>
+            <h2 className="font-bold text-batikara-navy">Bank Slip</h2>
+            <p className="text-sm text-slate-600">{row.nama} · {row.slipName}</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-md border border-batikara-line p-2 text-batikara-navy">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="max-h-[75vh] overflow-auto bg-batikara-sky p-4">
+          {isImageSlip(row.slipDataUrl) ? (
+            <img src={row.slipDataUrl} alt={row.slipName ?? "Bank slip"} className="mx-auto max-h-[70vh] max-w-full rounded-md border border-batikara-line bg-white object-contain" />
+          ) : row.slipDataUrl ? (
+            <iframe src={row.slipDataUrl} title={row.slipName ?? "Bank slip"} className="h-[70vh] w-full rounded-md border border-batikara-line bg-white" />
+          ) : (
+            <p className="text-center text-sm text-slate-600">No slip file found.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function isImageSlip(dataUrl?: string) {
+  return Boolean(dataUrl?.startsWith("data:image/"));
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Unable to read file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function compressImageFile(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    image.onload = () => {
+      const maxSide = 1400;
+      const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) {
+        URL.revokeObjectURL(url);
+        reject(new Error("Canvas not available."));
+        return;
+      }
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.78));
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Unable to load image."));
+    };
+    image.src = url;
+  });
 }
 
 function PendingRemark({ rows, deliveryPerPerson }: { rows: ShareRow[]; deliveryPerPerson: number }) {
