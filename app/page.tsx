@@ -102,7 +102,7 @@ export default function Home() {
       await sendProjectToGoogleSheets(record);
       setProjects(await repo.listProjects());
       setMeta((current) => ({ ...current, id: record.id }));
-      setNotice("Project saved. You can open it in History.");
+      setNotice("Project saved. Open the History tab to see it.");
     } catch (error) {
       setNotice(error instanceof Error ? `Could not save project: ${error.message}` : "Could not save project.");
     }

@@ -64,26 +64,44 @@ export function createRepository() {
     },
 
     async listProjects(): Promise<ProjectRecord[]> {
+      const localProjects = readLocal<ProjectRecord[]>(PROJECTS_KEY, []).map(normalizeProjectRecord);
       if (supabase) {
         const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
-        if (!error) return (data ?? []).map(fromProjectRow);
+        if (!error) return mergeProjects((data ?? []).map(fromProjectRow), localProjects);
       }
-      return readLocal<ProjectRecord[]>(PROJECTS_KEY, []).map(normalizeProjectRecord).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return localProjects.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     },
 
     async saveProject(project: ProjectRecord): Promise<ProjectRecord> {
       const record = { ...project, id: project.id || crypto.randomUUID(), createdAt: project.createdAt || new Date().toISOString() };
+      saveLocalProject(record);
+
       if (supabase) {
         const { data, error } = await supabase.from("projects").upsert(toProjectRow(record), { onConflict: "id" }).select("*").single();
-        if (!error) return fromProjectRow(data);
+        if (!error) {
+          const saved = fromProjectRow(data);
+          saveLocalProject(saved);
+          return saved;
+        }
       }
 
-      const projects = readLocal<ProjectRecord[]>(PROJECTS_KEY, []);
-      const withoutCurrent = projects.filter((item) => item.id !== record.id);
-      writeLocal(PROJECTS_KEY, [record, ...withoutCurrent]);
       return record;
     }
   };
+}
+
+function saveLocalProject(project: ProjectRecord) {
+  const projects = readLocal<ProjectRecord[]>(PROJECTS_KEY, []);
+  const withoutCurrent = projects.filter((item) => item.id !== project.id);
+  writeLocal(PROJECTS_KEY, [project, ...withoutCurrent]);
+}
+
+function mergeProjects(primary: ProjectRecord[], fallback: ProjectRecord[]) {
+  const byId = new Map<string, ProjectRecord>();
+  [...primary, ...fallback].forEach((project) => {
+    if (!byId.has(project.id)) byId.set(project.id, project);
+  });
+  return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 function readLocal<T>(key: string, fallback: T): T {
