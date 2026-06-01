@@ -5,7 +5,7 @@ import { Calculator, Copy, Download, ExternalLink, FileDown, FileSpreadsheet, Hi
 import { calculatePaymentSummary, createBlankPaymentRow, createEmptyProjectMeta, createReference, DEFAULT_PRICING, formatCurrency, normalizeCalculatedRow, normalizeTeacherPaymentRows, type CalculatedRow, type PricingSettings, type ProjectRecord } from "@/lib/calculator";
 import { exportQuotationPdf } from "@/lib/pdf";
 import { exportQuotationWorkbook, parseWorkbook } from "@/lib/workbook";
-import { createRepository } from "@/lib/repository";
+import { createRepository, type SharePayloadRecord } from "@/lib/repository";
 import { sendProjectToGoogleSheets } from "@/lib/googleSheets";
 
 const repo = createRepository();
@@ -115,7 +115,7 @@ export default function Home() {
       return;
     }
 
-    const payload = {
+    const payload: SharePayloadRecord = {
       schoolName: meta.schoolName || "School Name",
       quotationNo: meta.quotationNo,
       projectNo: meta.projectNo,
@@ -134,8 +134,7 @@ export default function Home() {
       })),
       deliveryTotal
     };
-    const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
-    const compactPayload = {
+    const compactPayload: SharePayloadRecord = {
       ...payload,
       rows: payload.rows.map((row, index) => ({
         ...row,
@@ -170,9 +169,11 @@ export default function Home() {
     } catch {
       savedOnline = false;
     }
+    const shareSaved = await repo.saveSharePayload(meta.projectNo, compactPayload);
+    savedOnline = savedOnline && shareSaved;
     const customerUrl = `${window.location.origin}/share?token=${token}`;
     const backupUrl = `${window.location.origin}/share?data=${compactEncoded}`;
-    const previewUrl = `${customerUrl}#data=${encoded}`;
+    const previewUrl = shareSaved ? customerUrl : backupUrl;
     const copiedUrl = savedOnline ? customerUrl : backupUrl;
     try {
       await navigator.clipboard?.writeText(copiedUrl);

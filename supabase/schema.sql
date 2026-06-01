@@ -53,10 +53,18 @@ create table if not exists public.share_payment_rows (
   unique (share_token, row_id)
 );
 
+create table if not exists public.share_links (
+  token text primary key,
+  payload jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.admin_users enable row level security;
 alter table public.pricing_settings enable row level security;
 alter table public.projects enable row level security;
 alter table public.share_payment_rows enable row level security;
+alter table public.share_links enable row level security;
 
 drop policy if exists "Admins can read admin users" on public.admin_users;
 create policy "Admins can read admin users"
@@ -119,6 +127,25 @@ with check (true);
 drop policy if exists "Anyone with share token can modify shared payment rows" on public.share_payment_rows;
 create policy "Anyone with share token can modify shared payment rows"
 on public.share_payment_rows for update
+to anon, authenticated
+using (true)
+with check (true);
+
+drop policy if exists "Anyone can read share links" on public.share_links;
+create policy "Anyone can read share links"
+on public.share_links for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Anyone can create share links" on public.share_links;
+create policy "Anyone can create share links"
+on public.share_links for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists "Anyone can update share links" on public.share_links;
+create policy "Anyone can update share links"
+on public.share_links for update
 to anon, authenticated
 using (true)
 with check (true);

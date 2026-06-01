@@ -83,6 +83,16 @@ export default function SharePage() {
     const supabase = getSupabaseClient();
     if (!supabase) return null;
 
+    const { data: shareData, error: shareError } = await supabase
+      .from("share_links")
+      .select("payload")
+      .eq("token", token)
+      .maybeSingle();
+
+    if (!shareError && shareData?.payload) {
+      return shareData.payload as SharePayload;
+    }
+
     const { data, error } = await supabase
       .from("projects")
       .select("school_name, quotation_no, project_no, pricing, rows, summary")

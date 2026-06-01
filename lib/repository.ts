@@ -4,6 +4,17 @@ import { getSupabaseClient } from "@/lib/supabase";
 const PRICING_KEY = "batikara.pricing";
 const PROJECTS_KEY = "batikara.projects";
 const SESSION_KEY = "batikara.session";
+const SHARE_PAYLOAD_KEY = "batikara.share.payload";
+
+export type SharePayloadRecord = {
+  schoolName: string;
+  quotationNo: string;
+  projectNo: string;
+  shareToken?: string;
+  deliveryTotal?: number;
+  pricing?: PricingSettings;
+  rows: Array<Record<string, unknown>>;
+};
 
 export function createRepository() {
   const supabase = getSupabaseClient();
@@ -86,6 +97,19 @@ export function createRepository() {
       }
 
       return record;
+    },
+
+    async saveSharePayload(token: string, payload: SharePayloadRecord) {
+      writeLocal(`${SHARE_PAYLOAD_KEY}.${token}`, payload);
+      if (supabase) {
+        const { error } = await supabase.from("share_links").upsert({
+          token,
+          payload,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "token" });
+        if (!error) return true;
+      }
+      return false;
     },
 
     async deleteProject(id: string) {
