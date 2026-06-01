@@ -93,7 +93,12 @@ export function createRepository() {
 function saveLocalProject(project: ProjectRecord) {
   const projects = readLocal<ProjectRecord[]>(PROJECTS_KEY, []);
   const withoutCurrent = projects.filter((item) => item.id !== project.id);
-  writeLocal(PROJECTS_KEY, [project, ...withoutCurrent]);
+  const compactProject = {
+    ...project,
+    schoolLogo: "",
+    companyLogo: ""
+  };
+  writeLocal(PROJECTS_KEY, [compactProject, ...withoutCurrent].slice(0, 30));
 }
 
 function mergeProjects(primary: ProjectRecord[], fallback: ProjectRecord[]) {
@@ -117,7 +122,12 @@ function readLocal<T>(key: string, fallback: T): T {
 }
 
 function writeLocal(key: string, value: unknown) {
-  if (typeof window !== "undefined") localStorage.setItem(key, JSON.stringify(value));
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Browser storage can be full, especially after logo uploads. Supabase remains the durable store.
+  }
 }
 
 function fromPricingRow(row: Record<string, number>): PricingSettings {

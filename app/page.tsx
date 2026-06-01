@@ -39,6 +39,7 @@ export default function Home() {
   const [sourceFileName, setSourceFileName] = useState("");
   const [deliveryTotal, setDeliveryTotal] = useState(0);
   const [notice, setNotice] = useState("");
+  const [shareLink, setShareLink] = useState("");
 
   const normalizedPaymentRows = useMemo(() => paymentRows.map((row, index) => normalizeCalculatedRow(row, index)), [paymentRows]);
   const validRows = normalizedPaymentRows.filter((row) => row.nama.trim());
@@ -134,7 +135,17 @@ export default function Home() {
       deliveryTotal
     };
     const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
-    await repo.saveProject({
+    const compactPayload = {
+      ...payload,
+      rows: payload.rows.map((row, index) => ({
+        ...row,
+        id: String(index + 1)
+      }))
+    };
+    const compactEncoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(compactPayload)))));
+    let savedOnline = true;
+    try {
+      await repo.saveProject({
       id: meta.id,
       schoolName: meta.schoolName || "School Name",
       quotationNo: meta.quotationNo,
@@ -146,17 +157,31 @@ export default function Home() {
       rows: validRows,
       summary,
       createdAt: meta.createdAt
-    });
-    setProjects(await repo.listProjects());
+      });
+      setProjects(await repo.listProjects());
+    } catch {
+      savedOnline = false;
+    }
 
     const token = encodeURIComponent(meta.projectNo);
-    localStorage.setItem(`batikara.share.payload.${meta.projectNo}`, JSON.stringify(payload));
-    localStorage.setItem(`batikara.share.payload.${meta.quotationNo}`, JSON.stringify(payload));
+    try {
+      localStorage.setItem(`batikara.share.payload.${meta.projectNo}`, JSON.stringify(payload));
+      localStorage.setItem(`batikara.share.payload.${meta.quotationNo}`, JSON.stringify(payload));
+    } catch {
+      savedOnline = false;
+    }
     const customerUrl = `${window.location.origin}/share?token=${token}`;
+    const backupUrl = `${window.location.origin}/share?data=${compactEncoded}`;
     const previewUrl = `${customerUrl}#data=${encoded}`;
-    await navigator.clipboard?.writeText(customerUrl);
+    const copiedUrl = savedOnline ? customerUrl : backupUrl;
+    try {
+      await navigator.clipboard?.writeText(copiedUrl);
+    } catch {
+      // The link is also shown on screen when the browser blocks clipboard access.
+    }
     window.open(previewUrl, "_blank", "noopener,noreferrer");
-    setNotice("Short customer link copied. Send the copied link to customer.");
+    setShareLink(copiedUrl);
+    setNotice(savedOnline ? "Short customer link copied. Send the copied link to customer." : "Backup share link copied. Run Supabase SQL once to enable short customer links.");
   }
 
   function duplicateProject(project: ProjectRecord) {
@@ -359,6 +384,12 @@ export default function Home() {
 
         <section className="space-y-5">
           {notice ? <div className="no-print rounded-md border border-batikara-line bg-white px-4 py-3 text-sm text-batikara-navy shadow-panel">{notice}</div> : null}
+          {shareLink ? (
+            <div className="no-print rounded-md border border-batikara-line bg-white px-4 py-3 text-sm text-batikara-navy shadow-panel">
+              <p className="mb-2 font-bold">Customer link</p>
+              <input readOnly value={shareLink} className="w-full rounded-md border border-batikara-line px-3 py-2 text-xs outline-none" onFocus={(event) => event.currentTarget.select()} />
+            </div>
+          ) : null}
 
           {activeTab === "payment" ? (
             <PaymentPanel
