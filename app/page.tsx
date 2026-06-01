@@ -150,7 +150,9 @@ export default function Home() {
     setProjects(await repo.listProjects());
 
     const token = encodeURIComponent(meta.projectNo);
-    const url = `${window.location.origin}/share?token=${token}#data=${encoded}`;
+    localStorage.setItem(`batikara.share.payload.${meta.projectNo}`, JSON.stringify(payload));
+    localStorage.setItem(`batikara.share.payload.${meta.quotationNo}`, JSON.stringify(payload));
+    const url = `${window.location.origin}/share?token=${token}&data=${encoded}#data=${encoded}`;
     await navigator.clipboard?.writeText(url);
     window.open(url, "_blank", "noopener,noreferrer");
     setNotice("Share view opened and link copied. Send that link to customer.");

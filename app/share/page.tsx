@@ -47,9 +47,11 @@ export default function SharePage() {
   async function loadInitialShare() {
     const search = new URLSearchParams(window.location.search);
     const token = search.get("token");
+    const queryPayload = parseEncodedPayload(search.get("data"));
+    const localPayload = token ? parseStoredPayload(token) : null;
     const remotePayload = token ? await loadPayloadFromToken(token) : null;
     const hashPayload = parseHashPayload();
-    const parsed = remotePayload ?? hashPayload;
+    const parsed = queryPayload ?? localPayload ?? remotePayload ?? hashPayload;
 
     if (!parsed) {
       setPayload(null);
@@ -63,6 +65,18 @@ export default function SharePage() {
     setPayload(parsed);
     setRows(mergedRows);
     void loadSharedRows(parsed, mergedRows);
+  }
+
+  function parseStoredPayload(token: string): SharePayload | null {
+    const saved = localStorage.getItem(`batikara.share.payload.${token}`);
+    if (!saved) return null;
+
+    try {
+      return JSON.parse(saved) as SharePayload;
+    } catch {
+      localStorage.removeItem(`batikara.share.payload.${token}`);
+      return null;
+    }
   }
 
   async function loadPayloadFromToken(token: string): Promise<SharePayload | null> {
@@ -102,7 +116,10 @@ export default function SharePage() {
 
   function parseHashPayload(): SharePayload | null {
     const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const data = params.get("data");
+    return parseEncodedPayload(params.get("data"));
+  }
+
+  function parseEncodedPayload(data: string | null): SharePayload | null {
     if (!data) return null;
 
     try {
