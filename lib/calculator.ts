@@ -65,10 +65,10 @@ export type ProjectRecord = {
 };
 
 export const DEFAULT_PRICING: PricingSettings = {
-  kainPasangPerMeter: 35,
-  kemeja: 65,
-  kurungPahang: 95,
-  kurungModen: 110,
+  kainPasangPerMeter: 10,
+  kemeja: 75,
+  kurungPahang: 80,
+  kurungModen: 80,
   addonPocket: 3,
   addonExtraSize: 5,
   deliveryCharge: 0,

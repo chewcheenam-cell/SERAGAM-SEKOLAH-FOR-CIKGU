@@ -9,10 +9,10 @@ create table if not exists public.admin_users (
 
 create table if not exists public.pricing_settings (
   id uuid primary key default gen_random_uuid(),
-  kain_pasang_per_meter numeric(12,2) not null default 35,
-  kemeja numeric(12,2) not null default 65,
-  kurung_pahang numeric(12,2) not null default 95,
-  kurung_moden numeric(12,2) not null default 110,
+  kain_pasang_per_meter numeric(12,2) not null default 10,
+  kemeja numeric(12,2) not null default 75,
+  kurung_pahang numeric(12,2) not null default 80,
+  kurung_moden numeric(12,2) not null default 80,
   addon_pocket numeric(12,2) not null default 3,
   addon_extra_size numeric(12,2) not null default 5,
   delivery_charge numeric(12,2) not null default 0,
@@ -165,5 +165,5 @@ insert into public.pricing_settings (
   delivery_charge,
   discount_amount
 )
-select 35, 65, 95, 110, 3, 5, 0, 0
+select 10, 75, 80, 80, 3, 5, 0, 0
 where not exists (select 1 from public.pricing_settings);
