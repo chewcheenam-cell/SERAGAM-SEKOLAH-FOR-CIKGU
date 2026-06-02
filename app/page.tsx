@@ -327,6 +327,18 @@ export default function Home() {
     setNotice(`Generated ${rows.length} rows for Cikgu 1-${rows.length}.`);
   }
 
+  function generateFromWhatsAppText(text: string, deliveryFee: number) {
+    const rows = parseWhatsAppRows(text, pricing);
+    if (!rows.length) {
+      setNotice("No WhatsApp rows detected. Paste one order per line.");
+      return;
+    }
+    setPaymentRows(rows);
+    setDeliveryTotal(deliveryFee);
+    setErrors([]);
+    setNotice(`Generated ${rows.length} rows from WhatsApp list.`);
+  }
+
   const filteredProjects = projects.filter((project) => {
     const q = search.toLowerCase();
     return [project.schoolName, project.quotationNo, project.projectNo, project.invoiceNo ?? "", project.designCode ?? ""].some((value) => value.toLowerCase().includes(q));
@@ -448,6 +460,7 @@ export default function Home() {
               onDeliveryChange={setDeliveryTotal}
               onFile={handleFile}
               onGenerateBulk={generateBulkOrder}
+              onPasteWhatsApp={generateFromWhatsAppText}
               onAddRow={() => setPaymentRows((rows) => [...rows, createBlankPaymentRow()])}
               onUpdateRow={updatePaymentRow}
               onRemoveRow={removePaymentRow}
@@ -523,6 +536,87 @@ function priceRowFromSettings(row: CalculatedRow, index: number, pricing: Pricin
   };
 }
 
+function parseWhatsAppRows(text: string, pricing: PricingSettings) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines.flatMap((line, index) => {
+    const cleaned = line
+      .replace(/^[\d\s.)-]+/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!cleaned) return [];
+
+    const lower = cleaned.toLowerCase();
+    const jenisPakaian = detectWhatsAppItem(lower);
+    const saiz = detectWhatsAppSize(cleaned);
+    const quantity = detectWhatsAppQuantity(lower);
+    const poket = /\b(poket|pocket)\b/.test(lower) && !/\b(no poket|no pocket|tanpa poket|tak poket)\b/.test(lower);
+    const paid = /\b(paid|sudah bayar|dah bayar|settled|done)\b/.test(lower);
+    const extraSize = isExtraSize(saiz) || /\b(extra size|saiz besar|3xl|4xl|5xl)\b/.test(lower);
+    const nama = extractWhatsAppName(cleaned, jenisPakaian, saiz) || `Cikgu ${index + 1}`;
+    const row = normalizeCalculatedRow({
+      id: crypto.randomUUID(),
+      nama,
+      jawatan: "",
+      jenisPakaian,
+      saiz: saiz || (extraSize ? "3XL" : ""),
+      poket,
+      extraSize,
+      quantity,
+      unitPrice: 0,
+      totalPrice: 0,
+      paid,
+      deliveryFee: 0
+    }, index);
+    return [priceRowFromSettings(row, index, pricing)];
+  });
+}
+
+function detectWhatsAppItem(lower: string) {
+  if (lower.includes("kain")) return "Kain Pasang";
+  if (lower.includes("pahang")) return "Kurung Pahang";
+  if (lower.includes("kurung")) return "Kurung Moden";
+  if (lower.includes("kemeja") || lower.includes("shirt")) return "Kemeja";
+  return "Kemeja";
+}
+
+function detectWhatsAppSize(text: string) {
+  const match = text.toUpperCase().match(/\b(CUSTOM SIZE|XS|S|M|L|XL|2XL|3XL|4XL|5XL)\b/);
+  return match ? titleSize(match[1]) : "";
+}
+
+function titleSize(size: string) {
+  return size === "CUSTOM SIZE" ? "Custom Size" : size;
+}
+
+function detectWhatsAppQuantity(lower: string) {
+  const match = lower.match(/\b(\d+)\s*(x|pcs|pc|helai)\b/);
+  return match ? Math.max(1, Number(match[1])) : 1;
+}
+
+function extractWhatsAppName(line: string, item: string, size: string) {
+  const wordsToRemove = [
+    item,
+    item.replace("Moden", "Modern"),
+    size,
+    "poket",
+    "pocket",
+    "paid",
+    "sudah bayar",
+    "dah bayar",
+    "settled",
+    "done"
+  ].filter(Boolean);
+  return wordsToRemove
+    .reduce((value, word) => value.replace(new RegExp(word, "ig"), " "), line)
+    .replace(/\b\d+\s*(x|pcs|pc|helai)\b/ig, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function InfoLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-batikara-sky px-3 py-2">
@@ -554,7 +648,7 @@ function LogoInput({ label, src, onFile, onClear }: { label: string; src?: strin
   );
 }
 
-function PaymentPanel({ meta, rows, errors, summary, deliveryTotal, onDeliveryChange, onFile, onGenerateBulk, onAddRow, onUpdateRow, onRemoveRow, onSave, onShare, onPdf, onExcel }: {
+function PaymentPanel({ meta, rows, errors, summary, deliveryTotal, onDeliveryChange, onFile, onGenerateBulk, onPasteWhatsApp, onAddRow, onUpdateRow, onRemoveRow, onSave, onShare, onPdf, onExcel }: {
   meta: ReturnType<typeof createEmptyProjectMeta>;
   rows: CalculatedRow[];
   errors: string[];
@@ -563,6 +657,7 @@ function PaymentPanel({ meta, rows, errors, summary, deliveryTotal, onDeliveryCh
   onDeliveryChange: (value: number) => void;
   onFile: (file: File) => void;
   onGenerateBulk: (config: BulkOrderConfig) => void;
+  onPasteWhatsApp: (text: string, deliveryFee: number) => void;
   onAddRow: () => void;
   onUpdateRow: (id: string, patch: Partial<CalculatedRow>) => void;
   onRemoveRow: (id: string) => void;
@@ -572,6 +667,7 @@ function PaymentPanel({ meta, rows, errors, summary, deliveryTotal, onDeliveryCh
   onExcel: () => void;
 }) {
   const [entryMode, setEntryMode] = useState<"quick" | "upload" | "manual">("quick");
+  const [whatsAppText, setWhatsAppText] = useState("");
   const [bulkOrder, setBulkOrder] = useState<BulkOrderConfig>({
     kemejaQty: 10,
     kemejaPocketQty: 3,
@@ -653,6 +749,24 @@ function PaymentPanel({ meta, rows, errors, summary, deliveryTotal, onDeliveryCh
           <Calculator className="h-4 w-4" />
           Generate Cikgu 1-{bulkTotal}
         </button>
+        <div className="mt-5 rounded-md border border-batikara-line bg-batikara-sky p-4">
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-slate-700">Paste WhatsApp list</span>
+            <textarea
+              value={whatsAppText}
+              onChange={(event) => setWhatsAppText(event.target.value)}
+              placeholder={"Example:\n1. Cikgu A kemeja M poket\n2. Cikgu B kurung moden 3XL\n3. Cikgu C kain pasang"}
+              className="min-h-32 w-full rounded-md border border-batikara-line px-3 py-2.5 text-sm outline-none focus:border-batikara-blue"
+            />
+          </label>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button onClick={() => onPasteWhatsApp(whatsAppText, bulkOrder.deliveryFee)} className="inline-flex items-center gap-2 rounded-md bg-batikara-blue px-4 py-3 font-semibold text-white transition hover:bg-batikara-navy">
+              <Calculator className="h-4 w-4" />
+              Generate from WhatsApp
+            </button>
+            <button onClick={() => setWhatsAppText("")} className="rounded-md border border-batikara-line bg-white px-4 py-3 font-semibold text-batikara-navy">Clear</button>
+          </div>
+        </div>
       </section> : null}
 
       <section className="print-surface rounded-lg border border-batikara-line bg-white p-5 shadow-panel">
