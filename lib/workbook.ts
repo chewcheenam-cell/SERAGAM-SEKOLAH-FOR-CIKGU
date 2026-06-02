@@ -38,8 +38,97 @@ export async function parseWorkbook(file: File): Promise<Record<string, unknown>
 async function parseDocxFile(file: File) {
   const buffer = await file.arrayBuffer();
   const xml = await readZipTextFile(buffer, "word/document.xml");
+  const tableRows = parseDocxTableOrderRows(xml);
+  if (tableRows.length) return tableRows;
   const text = docxXmlToText(xml);
   return parseTextOrderRows(text);
+}
+
+function parseDocxTableOrderRows(xml: string) {
+  const tables = xml.match(/<w:tbl[\s\S]*?<\/w:tbl>/g) ?? [];
+  const rows: Record<string, unknown>[] = [];
+
+  tables.forEach((tableXml) => {
+    const tableText = xmlFragmentToText(tableXml).toLowerCase();
+    if (!tableText.includes("nama guru")) return;
+
+    const tableType = tableText.includes("(l)") || tableText.includes("lelaki") ? "Kemeja" : "Kurung Moden";
+    const tableRows = tableXml.match(/<w:tr[\s\S]*?<\/w:tr>/g) ?? [];
+    const headerCells = tableRows.length ? extractDocxCells(tableRows[0] ?? "") : [];
+    const nameIndex = headerCells.findIndex((cell) => cell.toLowerCase().includes("nama"));
+    const sizeIndex = headerCells.findIndex((cell) => cell.toLowerCase().includes("size") || cell.toLowerCase().includes("saiz"));
+    const kainIndex = headerCells.findIndex((cell) => cell.toLowerCase().includes("kain") || cell.toLowerCase().includes("meter"));
+
+    tableRows.slice(1).forEach((rowXml) => {
+      const cells = extractDocxCells(rowXml);
+      const nama = cleanDocxCell(cells[nameIndex] ?? "");
+      if (!nama) return;
+
+      const size = normalizeDocxSize(cells[sizeIndex] ?? "");
+      const kainMeter = parseKainMeter(cells[kainIndex] ?? "");
+      if (size) {
+        rows.push({
+          Nama: nama,
+          Item: tableType,
+          Saiz: size,
+          Poket: "No",
+          "Extra Size": ["3XL", "4XL", "5XL"].includes(size) ? "Yes" : "No",
+          Kuantiti: 1
+        });
+      }
+      if (kainMeter > 0) {
+        rows.push({
+          Nama: nama,
+          Item: "Kain Pasang",
+          Saiz: "",
+          Poket: "No",
+          "Extra Size": "No",
+          Kuantiti: kainMeter
+        });
+      }
+    });
+  });
+
+  return rows;
+}
+
+function extractDocxCells(rowXml: string) {
+  return (rowXml.match(/<w:tc[\s\S]*?<\/w:tc>/g) ?? []).map(xmlFragmentToText);
+}
+
+function xmlFragmentToText(xml: string) {
+  return xml
+    .replace(/<w:tab\/>/g, " ")
+    .replace(/<\/w:p>/g, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&apos;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanDocxCell(value: string) {
+  const cleaned = value.trim();
+  if (!cleaned || cleaned === "-") return "";
+  return cleaned;
+}
+
+function normalizeDocxSize(value: string) {
+  const cleaned = value.trim().toUpperCase();
+  if (!cleaned || cleaned === "-") return "";
+  const match = cleaned.match(/\b(CUSTOM SIZE|XS|S|M|L|XL|2XL|3XL|4XL|5XL)\b/);
+  if (!match) return "";
+  return match[1] === "CUSTOM SIZE" ? "Custom Size" : match[1];
+}
+
+function parseKainMeter(value: string) {
+  const cleaned = value.trim().toUpperCase();
+  if (!cleaned || cleaned === "-") return 0;
+  const match = cleaned.match(/(\d+(?:[.,]\d+)?)\s*M?/);
+  return match ? Number(match[1].replace(",", ".")) : 0;
 }
 
 function parseTextOrderRows(text: string) {
