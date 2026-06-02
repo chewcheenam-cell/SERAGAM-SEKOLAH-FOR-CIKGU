@@ -19,6 +19,60 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.theme-dark {
+  color-scheme: dark;
+  background:
+    linear-gradient(180deg, #101827 0%, #172338 48%, #101827 100%) !important;
+  color: #e8f1ff !important;
+}
+
+.theme-dark header,
+.theme-dark section,
+.theme-dark article,
+.theme-dark form,
+.theme-dark .bg-white {
+  background-color: #172338 !important;
+  color: #e8f1ff !important;
+  border-color: #334966 !important;
+}
+
+.theme-dark .bg-batikara-sky {
+  background-color: #213653 !important;
+}
+
+.theme-dark .text-batikara-navy,
+.theme-dark .text-batikara-ink,
+.theme-dark .text-slate-700,
+.theme-dark .text-slate-600,
+.theme-dark .text-slate-500 {
+  color: #e8f1ff !important;
+}
+
+.theme-dark .border-batikara-line {
+  border-color: #334966 !important;
+}
+
+.theme-dark input,
+.theme-dark select,
+.theme-dark textarea {
+  background-color: #101827 !important;
+  color: #eef6ff !important;
+  border-color: #3c5575 !important;
+}
+
+.theme-dark input::placeholder,
+.theme-dark textarea::placeholder {
+  color: #8ea6c5 !important;
+}
+
+.theme-dark table tbody tr {
+  background-color: #172338;
+}
+
+.theme-dark .shadow-panel {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28) !important;
+}
+
 button,
 input,
 select,

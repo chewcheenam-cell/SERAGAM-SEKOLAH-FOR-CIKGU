@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Calculator, Copy, Download, ExternalLink, FileDown, FileSpreadsheet, History, LogIn, Plus, Printer, Save, Search, Settings, Shield, Trash2, Upload, XCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Calculator, Copy, Download, ExternalLink, FileDown, FileSpreadsheet, History, LogIn, Moon, Plus, Printer, Save, Search, Settings, Shield, Sun, Trash2, Upload, XCircle } from "lucide-react";
 import { calculatePaymentSummary, createBlankPaymentRow, createEmptyProjectMeta, createReference, DEFAULT_PRICING, formatCurrency, normalizeCalculatedRow, normalizeTeacherPaymentRows, type CalculatedRow, type PricingSettings, type ProjectRecord } from "@/lib/calculator";
 import { exportQuotationPdf } from "@/lib/pdf";
 import { exportQuotationWorkbook, parseOrderFile } from "@/lib/workbook";
@@ -41,6 +41,9 @@ export default function Home() {
   const [deliveryTotal, setDeliveryTotal] = useState(0);
   const [notice, setNotice] = useState("");
   const [shareLink, setShareLink] = useState("");
+  const [darkMode, setDarkMode] = useState(false);
+  const [autosaveStatus, setAutosaveStatus] = useState("Autosave ready");
+  const autosaveReadyRef = useRef(false);
 
   const normalizedPaymentRows = useMemo(() => paymentRows.map((row, index) => normalizeCalculatedRow(row, index)), [paymentRows]);
   const validRows = normalizedPaymentRows.filter((row) => row.nama.trim());
@@ -51,7 +54,49 @@ export default function Home() {
     void repo.getPricing().then(setPricing);
     void repo.listProjects().then(setProjects);
     void repo.getSession().then((session) => setIsAuthed(Boolean(session)));
+    setDarkMode(localStorage.getItem("batikara.theme") === "dark");
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("batikara.theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
+
+  useEffect(() => {
+    if (!isAuthed) return;
+    if (!autosaveReadyRef.current) {
+      autosaveReadyRef.current = true;
+      return;
+    }
+    if (!validRows.length || allErrors.length) return;
+
+    setAutosaveStatus("Autosaving...");
+    const timer = window.setTimeout(async () => {
+      try {
+        const record = await repo.saveProject({
+          id: meta.id,
+          schoolName: meta.schoolName || "Unnamed School",
+          quotationNo: meta.quotationNo,
+          projectNo: meta.projectNo,
+          invoiceNo: meta.invoiceNo,
+          designCode: meta.designCode,
+          schoolLogo: meta.schoolLogo,
+          companyLogo: meta.companyLogo,
+          sourceFileName,
+          pricing,
+          rows: validRows,
+          summary,
+          createdAt: meta.createdAt
+        });
+        setProjects(await repo.listProjects());
+        setMeta((current) => current.id === record.id ? current : { ...current, id: record.id });
+        setAutosaveStatus(`Autosaved ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+      } catch {
+        setAutosaveStatus("Autosave waiting");
+      }
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [allErrors.length, deliveryTotal, isAuthed, meta, paymentRows, pricing, sourceFileName, summary, validRows]);
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -395,7 +440,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f9fd] text-batikara-ink">
+    <main className={`min-h-screen bg-[#f6f9fd] text-batikara-ink ${darkMode ? "theme-dark" : ""}`}>
       <header className="no-print border-b border-batikara-line bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -412,6 +457,17 @@ export default function Home() {
             <TabButton active={activeTab === "pricing"} onClick={() => setActiveTab("pricing")} icon={<Settings className="h-4 w-4" />} label="Settings" />
             <TabButton active={activeTab === "history"} onClick={() => setActiveTab("history")} icon={<History className="h-4 w-4" />} label="History" />
           </nav>
+          <div className="flex items-center gap-2">
+            <span className="rounded-md border border-batikara-line bg-batikara-sky px-3 py-2 text-xs font-bold text-batikara-navy">{autosaveStatus}</span>
+            <button
+              type="button"
+              onClick={() => setDarkMode((current) => !current)}
+              className="inline-flex items-center gap-2 rounded-md border border-batikara-line bg-white px-3 py-2 text-sm font-semibold text-batikara-navy"
+            >
+              {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {darkMode ? "Light" : "Dark"}
+            </button>
+          </div>
         </div>
       </header>
 
