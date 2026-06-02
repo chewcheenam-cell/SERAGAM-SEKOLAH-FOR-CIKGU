@@ -43,11 +43,57 @@ async function parseDocxFile(file: File) {
 }
 
 function parseTextOrderRows(text: string) {
-  return text
+  const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => textLineToOrderRow(line));
+    .filter(Boolean);
+  const groupedRows = parseGroupedTextRows(lines);
+  if (groupedRows.length) return groupedRows;
+  return lines.map((line) => textLineToOrderRow(line));
+}
+
+function parseGroupedTextRows(lines: string[]) {
+  const rows: Record<string, unknown>[] = [];
+  let currentItem = "";
+  let cikguNumber = 1;
+
+  lines.forEach((line) => {
+    const lower = line.toLowerCase();
+    const headingItem = detectGroupedTextItem(lower);
+    if (headingItem) {
+      currentItem = headingItem;
+      return;
+    }
+    if (!currentItem || lower.includes("jumlah")) return;
+
+    const match = line.toUpperCase().match(/\b(CUSTOM SIZE|XS|S|M|L|XL|2XL|3XL|4XL|5XL)\b\s*[-:=]?\s*(\d+)/);
+    if (!match) return;
+
+    const size = match[1] === "CUSTOM SIZE" ? "Custom Size" : match[1];
+    const count = Math.max(0, Number(match[2]));
+    for (let index = 0; index < count; index += 1) {
+      rows.push({
+        Nama: `Cikgu ${cikguNumber}`,
+        Item: currentItem,
+        Saiz: size,
+        Poket: "No",
+        "Extra Size": ["3XL", "4XL", "5XL"].includes(size) ? "Yes" : "No",
+        Kuantiti: 1
+      });
+      cikguNumber += 1;
+    }
+  });
+
+  return rows;
+}
+
+function detectGroupedTextItem(lower: string) {
+  if (!lower.includes("baju") && !lower.includes("kain")) return "";
+  if (lower.includes("kemeja")) return "Kemeja";
+  if (lower.includes("pahang")) return "Kurung Pahang";
+  if (lower.includes("kurung")) return "Kurung Moden";
+  if (lower.includes("kain")) return "Kain Pasang";
+  return "";
 }
 
 function textLineToOrderRow(line: string) {

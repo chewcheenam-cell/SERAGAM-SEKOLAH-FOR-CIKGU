@@ -546,6 +546,8 @@ function parseWhatsAppRows(text: string, pricing: PricingSettings) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+  const groupedRows = parseGroupedWhatsAppRows(lines, pricing);
+  if (groupedRows.length) return groupedRows;
 
   return lines.flatMap((line, index) => {
     const cleaned = line
@@ -578,6 +580,57 @@ function parseWhatsAppRows(text: string, pricing: PricingSettings) {
     }, index);
     return [priceRowFromSettings(row, index, pricing)];
   });
+}
+
+function parseGroupedWhatsAppRows(lines: string[], pricing: PricingSettings) {
+  const rows: CalculatedRow[] = [];
+  let currentItem = "";
+  let cikguNumber = 1;
+
+  lines.forEach((line) => {
+    const lower = line.toLowerCase();
+    const headingItem = detectGroupedItem(lower);
+    if (headingItem) {
+      currentItem = headingItem;
+      return;
+    }
+    if (!currentItem || lower.includes("jumlah")) return;
+
+    const match = line.toUpperCase().match(/\b(CUSTOM SIZE|XS|S|M|L|XL|2XL|3XL|4XL|5XL)\b\s*[-:=]?\s*(\d+)/);
+    if (!match) return;
+
+    const saiz = titleSize(match[1]);
+    const count = Math.max(0, Number(match[2]));
+    for (let index = 0; index < count; index += 1) {
+      const row = normalizeCalculatedRow({
+        id: crypto.randomUUID(),
+        nama: `Cikgu ${cikguNumber}`,
+        jawatan: "",
+        jenisPakaian: currentItem,
+        saiz,
+        poket: false,
+        extraSize: isExtraSize(saiz),
+        quantity: 1,
+        unitPrice: 0,
+        totalPrice: 0,
+        paid: false,
+        deliveryFee: 0
+      }, rows.length);
+      rows.push(priceRowFromSettings(row, rows.length, pricing));
+      cikguNumber += 1;
+    }
+  });
+
+  return rows;
+}
+
+function detectGroupedItem(lower: string) {
+  if (!lower.includes("baju") && !lower.includes("kain")) return "";
+  if (lower.includes("kemeja")) return "Kemeja";
+  if (lower.includes("pahang")) return "Kurung Pahang";
+  if (lower.includes("kurung")) return "Kurung Moden";
+  if (lower.includes("kain")) return "Kain Pasang";
+  return "";
 }
 
 function detectWhatsAppItem(lower: string) {
@@ -760,7 +813,7 @@ function PaymentPanel({ meta, rows, errors, summary, deliveryTotal, onDeliveryCh
             <textarea
               value={whatsAppText}
               onChange={(event) => setWhatsAppText(event.target.value)}
-              placeholder={"Example:\n1. Cikgu A kemeja M poket\n2. Cikgu B kurung moden 3XL\n3. Cikgu C kain pasang"}
+              placeholder={"Example:\nBAJU KEMEJA BATIK\nS - 5\nM - 4\nXL - 5\nJUMLAH - 14\n\nBAJU KURUNG BATIK\nS - 9\nM - 17\n3XL - 12\nJUMLAH - 38"}
               className="min-h-32 w-full rounded-md border border-batikara-line px-3 py-2.5 text-sm outline-none focus:border-batikara-blue"
             />
           </label>
