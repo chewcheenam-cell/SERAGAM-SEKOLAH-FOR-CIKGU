@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Calculator, Copy, Download, ExternalLink, FileDown, FileSpreadsheet, History, LogIn, Plus, Printer, Save, Search, Settings, Shield, Trash2, Upload, XCircle } from "lucide-react";
 import { calculatePaymentSummary, createBlankPaymentRow, createEmptyProjectMeta, createReference, DEFAULT_PRICING, formatCurrency, normalizeCalculatedRow, normalizeTeacherPaymentRows, type CalculatedRow, type PricingSettings, type ProjectRecord } from "@/lib/calculator";
 import { exportQuotationPdf } from "@/lib/pdf";
-import { exportQuotationWorkbook, parseWorkbook } from "@/lib/workbook";
+import { exportQuotationWorkbook, parseOrderFile } from "@/lib/workbook";
 import { createRepository, type SharePayloadRecord } from "@/lib/repository";
 import { sendProjectToGoogleSheets } from "@/lib/googleSheets";
 
@@ -68,10 +68,15 @@ export default function Home() {
   async function handleFile(file: File) {
     setSourceFileName(file.name);
     setNotice("");
-    const parsed = await parseWorkbook(file);
-    const normalized = normalizeTeacherPaymentRows(parsed);
-    setPaymentRows(normalized.rows.map((row, index) => priceRowFromSettings(row, index, pricing)));
-    setErrors(normalized.errors);
+    try {
+      const parsed = await parseOrderFile(file);
+      const normalized = normalizeTeacherPaymentRows(parsed);
+      setPaymentRows(normalized.rows.map((row, index) => priceRowFromSettings(row, index, pricing)));
+      setErrors(normalized.errors);
+    } catch (error) {
+      setPaymentRows([]);
+      setErrors([error instanceof Error ? error.message : "Could not read uploaded file."]);
+    }
   }
 
   async function handleLogo(file: File, type: "schoolLogo" | "companyLogo") {
@@ -698,11 +703,11 @@ function PaymentPanel({ meta, rows, errors, summary, deliveryTotal, onDeliveryCh
         {entryMode === "upload" ? (
           <div className="mt-4 rounded-md border border-batikara-line bg-batikara-sky p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-slate-700"><strong>Accepted:</strong> Nama only, or Nama + Jawatan + Bayaran.</p>
+              <p className="text-sm text-slate-700"><strong>Accepted:</strong> Excel, CSV, DOCX Word, TXT, or Nama only list.</p>
               <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-batikara-blue px-4 py-3 font-semibold text-white transition hover:bg-batikara-navy">
                 <FileSpreadsheet className="h-4 w-4" />
-                Upload Excel/CSV
-                <input type="file" accept=".xlsx,.csv" className="hidden" onChange={(event) => event.target.files?.[0] && onFile(event.target.files[0])} />
+                Upload File
+                <input type="file" accept=".xlsx,.csv,.docx,.doc,.txt" className="hidden" onChange={(event) => event.target.files?.[0] && onFile(event.target.files[0])} />
               </label>
             </div>
           </div>
