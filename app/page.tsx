@@ -69,7 +69,7 @@ export default function Home() {
     setNotice("");
     const parsed = await parseWorkbook(file);
     const normalized = normalizeTeacherPaymentRows(parsed);
-    setPaymentRows(normalized.rows);
+    setPaymentRows(normalized.rows.map((row, index) => priceRowFromSettings(row, index, pricing)));
     setErrors(normalized.errors);
   }
 
@@ -483,6 +483,23 @@ function getItemPrice(item: string, pricing: PricingSettings) {
   if (normalized.includes("pahang")) return pricing.kurungPahang;
   if (normalized.includes("moden") || normalized.includes("modern")) return pricing.kurungModen;
   return 0;
+}
+
+function priceRowFromSettings(row: CalculatedRow, index: number, pricing: PricingSettings) {
+  const next = normalizeCalculatedRow(row, index);
+  const saiz = next.extraSize && !next.saiz ? "3XL" : next.saiz;
+  const basePrice = getItemPrice(next.jenisPakaian, pricing);
+  if (!basePrice) return next;
+
+  const sizeAddon = getSizeAddon(saiz, pricing) || (next.extraSize ? pricing.addonExtraSize : 0);
+  const unitPrice = basePrice + sizeAddon + (next.poket ? pricing.addonPocket : 0);
+  return {
+    ...next,
+    saiz,
+    extraSize: next.extraSize || isExtraSize(saiz),
+    unitPrice,
+    totalPrice: unitPrice * next.quantity
+  };
 }
 
 function InfoLine({ label, value }: { label: string; value: string }) {

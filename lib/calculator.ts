@@ -124,6 +124,8 @@ export function normalizeTeacherPaymentRows(rows: Record<string, unknown>[]) {
     const saiz = readLoose(row, ["Saiz", "Size"]);
     const quantity = readNumber(row, ["Kuantiti", "Quantity", "Qty", "PCS", "Pcs"]) || 1;
     const amount = readNumber(row, ["Bayaran", "Amount", "Harga", "Total", "Jumlah", "Perlu Bayar"]) || 0;
+    const poket = parseYesNo(readLoose(row, ["Poket (Yes/No)", "Poket", "Pocket"]));
+    const extraSize = parseYesNo(readLoose(row, ["Extra Size (Yes/No)", "Extra Size", "Extra", "3XL Above"]));
     const paid = parsePaidStatus(readLoose(row, ["Status", "Paid", "Bayar", "Payment Status"]));
 
     if (!nama) {
@@ -136,8 +138,8 @@ export function normalizeTeacherPaymentRows(rows: Record<string, unknown>[]) {
       jawatan,
       jenisPakaian,
       saiz,
-      poket: false,
-      extraSize: false,
+      poket,
+      extraSize,
       quantity,
       unitPrice: amount,
       totalPrice: amount * quantity,
