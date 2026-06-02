@@ -187,8 +187,9 @@ export default function Home() {
     } catch {
       // The link is also shown on screen when the browser blocks clipboard access.
     }
+    window.open(previewUrl, "_blank", "noopener,noreferrer");
     setShareLink(copiedUrl);
-    setNotice(savedOnline ? "Customer link ready. Copy and send it to customer." : "Backup customer link ready. Run Supabase SQL once to enable short links.");
+    setNotice(savedOnline ? "Share view opened and customer link is ready below." : "Share view opened with backup link below. Run Supabase SQL once to enable short links.");
   }
 
   function duplicateProject(project: ProjectRecord) {

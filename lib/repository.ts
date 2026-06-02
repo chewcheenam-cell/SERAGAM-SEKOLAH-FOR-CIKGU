@@ -23,11 +23,13 @@ export function createRepository() {
 
   return {
     async getSession() {
+      const localSession = typeof window !== "undefined" ? localStorage.getItem(SESSION_KEY) : null;
+      if (localSession) return localSession;
       if (supabase) {
         const { data } = await supabase.auth.getSession();
         return data.session;
       }
-      return typeof window !== "undefined" ? localStorage.getItem(SESSION_KEY) : null;
+      return null;
     },
 
     async signIn(email: string, password: string) {
