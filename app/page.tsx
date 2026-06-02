@@ -17,6 +17,7 @@ type BulkOrderConfig = {
   kurungQty: number;
   kurungPocketQty: number;
   kurungExtraQty: number;
+  kainPasangQty: number;
   deliveryFee: number;
 };
 
@@ -300,6 +301,25 @@ export default function Home() {
       cikguNumber += 1;
     }
 
+    for (let index = 0; index < config.kainPasangQty; index += 1) {
+      const unitPrice = pricing.kainPasangPerMeter;
+      rows.push({
+        id: crypto.randomUUID(),
+        nama: `Cikgu ${cikguNumber}`,
+        jawatan: "",
+        jenisPakaian: "Kain Pasang",
+        saiz: "",
+        poket: false,
+        extraSize: false,
+        quantity: 1,
+        unitPrice,
+        totalPrice: unitPrice,
+        paid: false,
+        deliveryFee: 0
+      });
+      cikguNumber += 1;
+    }
+
     setPaymentRows(rows);
     setDeliveryTotal(config.deliveryFee);
     setErrors([]);
@@ -558,9 +578,10 @@ function PaymentPanel({ meta, rows, errors, summary, deliveryTotal, onDeliveryCh
     kurungQty: 10,
     kurungPocketQty: 0,
     kurungExtraQty: 3,
+    kainPasangQty: 0,
     deliveryFee: 100
   });
-  const bulkTotal = bulkOrder.kemejaQty + bulkOrder.kurungQty;
+  const bulkTotal = bulkOrder.kemejaQty + bulkOrder.kurungQty + bulkOrder.kainPasangQty;
   const deliveryPerPerson = bulkTotal ? bulkOrder.deliveryFee / bulkTotal : 0;
 
   return (
@@ -624,6 +645,7 @@ function PaymentPanel({ meta, rows, errors, summary, deliveryTotal, onDeliveryCh
           <NumberField label="Kurung pcs" value={bulkOrder.kurungQty} onChange={(value) => setBulkOrder((current) => ({ ...current, kurungQty: value, kurungPocketQty: Math.min(current.kurungPocketQty, value), kurungExtraQty: Math.min(current.kurungExtraQty, value) }))} />
           <NumberField label="Kurung need poket" value={bulkOrder.kurungPocketQty} max={bulkOrder.kurungQty} onChange={(value) => setBulkOrder((current) => ({ ...current, kurungPocketQty: Math.min(value, current.kurungQty) }))} />
           <NumberField label="Kurung extra size" value={bulkOrder.kurungExtraQty} max={bulkOrder.kurungQty} onChange={(value) => setBulkOrder((current) => ({ ...current, kurungExtraQty: Math.min(value, current.kurungQty) }))} />
+          <NumberField label="Kain Pasang pcs" value={bulkOrder.kainPasangQty} onChange={(value) => setBulkOrder((current) => ({ ...current, kainPasangQty: value }))} />
           <NumberField label="Delivery fee (RM)" value={bulkOrder.deliveryFee} onChange={(value) => setBulkOrder((current) => ({ ...current, deliveryFee: value }))} />
         </div>
         <button onClick={() => onGenerateBulk(bulkOrder)} className="mt-4 inline-flex items-center gap-2 rounded-md bg-batikara-blue px-4 py-3 font-semibold text-white transition hover:bg-batikara-navy">
